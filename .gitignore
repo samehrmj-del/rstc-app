@@ -1,0 +1,12 @@
+node_modules/
+.env
+*.db
+*.db.bak
+*.bak
+backups/
+dump_*/
+_backup_*/
+_secure_fix_backup_*/
+apply_patch.js
+patch_script.js
+options.json

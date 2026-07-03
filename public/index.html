@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RSTC — سیستم مدیریت منابع انسانی</title>
+    <link rel="stylesheet" href="style.css?v=34">
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+</head>
+<body>
+
+<!-- Toast Notifications -->
+<div id="toast-container"></div>
+
+<!-- Confirm Modal -->
+<div id="confirmModal" class="modal-overlay" onclick="event.stopPropagation()" style="display:none;">
+    <div class="confirm-box" onclick="event.stopPropagation()">
+        <div class="confirm-icon" id="confirm-icon">⚠️</div>
+        <div class="confirm-msg" id="confirm-msg"></div>
+        <div class="confirm-actions">
+            <button class="confirm-yes" id="confirm-yes">بله</button>
+            <button class="confirm-no" id="confirm-no">خیر</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== صفحه لاگین ===== -->
+<div id="login-page" class="login-wrapper">
+    <canvas id="login-canvas"></canvas>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-logo-center">
+                <img src="logo.png" alt="RSTC" class="login-logo-img">
+            </div>
+            <h2 class="login-heading">ورود به پنل مدیریت</h2>
+            <p class="login-subtitle">سیستم جامع صدور حکم ماموریت و مدیریت پرسنل</p>
+            <div class="input-group">
+                <label>نام کاربری</label>
+                <div class="input-icon-wrap">
+                    <span class="input-icon">👤</span>
+                    <input type="text" id="username" placeholder="نام کاربری خود را وارد کنید" autocomplete="username">
+                </div>
+            </div>
+            <div class="input-group">
+                <label>رمز عبور</label>
+                <div class="input-icon-wrap">
+                    <span class="input-icon">🔒</span>
+                    <input type="password" id="password" placeholder="رمز عبور" autocomplete="current-password">
+                    <button class="eye-btn" type="button" onclick="togglePass()" title="نمایش/پنهان">👁</button>
+                </div>
+            </div>
+            <div id="login-error" class="alert alert-error" style="display:none;"></div>
+            <button id="loginBtn" class="btn-primary full-width" onclick="doLogin()">
+                <span>ورود به سیستم</span>
+                <span class="btn-arrow">←</span>
+            </button>
+            <div class="login-footer">
+                <span>نسخه ۱.۰</span>
+                <span>شرکت خدمات خط و ابنیه فنی راه آهن</span>
+            </div>
+        </div>
+    </div>
+    <div class="login-features">
+        <div class="features-content">
+            <div class="feature-badge">RSTC Co.</div>
+            <h1 class="feature-title">سیستم مدیریت<br>منابع انسانی</h1>
+            <p class="feature-desc">صدور حکم ماموریت · مدیریت پرسنل · گزارش‌گیری پیشرفته</p>
+            <div class="feature-cards">
+                <div class="feature-card">
+                    <div class="fc-icon">📋</div>
+                    <div class="fc-text">
+                        <span class="fc-title">صدور حکم</span>
+                        <span class="fc-sub">صورت‌جلسه ماموریت</span>
+                    </div>
+                </div>
+                <div class="feature-card">
+                    <div class="fc-icon">👥</div>
+                    <div class="fc-text">
+                        <span class="fc-title">مدیریت پرسنل</span>
+                        <span class="fc-sub">اطلاعات جامع نیروی انسانی</span>
+                    </div>
+                </div>
+                <div class="feature-card">
+                    <div class="fc-icon">📈</div>
+                    <div class="fc-text">
+                        <span class="fc-title">گزارش‌گیری</span>
+                        <span class="fc-sub">تحلیل و آمار لحظه‌ای</span>
+                    </div>
+                </div>
+                <div class="feature-card">
+                    <div class="fc-icon">🚂</div>
+                    <div class="fc-text">
+                        <span class="fc-title">ناحیه‌بندی</span>
+                        <span class="fc-sub">مدیریت نواحی راه‌آهن</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="login-train">
+            <div class="train-track"></div>
+            <div class="train-line"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== پنل اصلی ===== -->
+<div id="dashboard-page" class="app-shell" style="display:none;">
+
+    <!-- Sidebar Overlay (Mobile) -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <div class="sidebar-logo">R</div>
+            <span>RSTC</span>
+        </div>
+        <nav class="sidebar-nav">
+            <div class="nav-label">منو اصلی</div>
+            <ul>
+                <li class="nav-item active" data-page="dashboard">
+                    <span class="nav-icon">📊</span><span>داشبورد</span>
+                </li>
+                <li class="nav-item" data-page="personnel">
+                    <span class="nav-icon">👥</span><span>مدیریت پرسنل</span>
+                </li>
+                                <li class="nav-item" data-page="missions">
+                    <span class="nav-icon">📋</span><span>صدور ماموریت</span>
+                </li>
+                <li class="nav-item" data-page="reports">
+                    <span class="nav-icon">📈</span><span>گزارش‌گیری</span>
+                </li>
+                <li class="nav-item" id="nav-backup" style="display:none;" data-page="backup">
+                    <span class="nav-icon">💾</span><span>پشتیبان‌گیری</span>
+                </li>
+                <li class="nav-item" id="nav-users" style="display:none;" data-page="users">
+                    <span class="nav-icon">🔑</span><span>کاربران سیستم</span>
+                </li>
+                <li class="nav-item" id="nav-options" style="display:none;" onclick="openOptionsModal()">
+                    <span class="nav-icon">⚙️</span><span>گزینه‌های سیستم</span>
+                </li>
+                <li class="nav-item" id="nav-audit" style="display:none;" data-page="audit">
+                    <span class="nav-icon">📋</span><span>لاگ فعالیت‌ها</span>
+                </li>
+            </ul>
+        </nav>
+        <div class="sidebar-user">
+            <div class="user-avatar" id="user-avatar">A</div>
+            <div class="user-info">
+                <span id="user-display-name">admin</span>
+                <span id="user-display-role" class="user-role-badge">مدیر کل</span>
+            </div>
+            <button class="logout-btn" onclick="doLogout()" title="خروج">⏻ خروج</button>
+        </div>
+    </aside>
+
+    <!-- Main -->
+    <div class="main-area">
+        <header class="topbar">
+            <button class="burger-btn" id="burgerBtn" onclick="toggleSidebar()">☰</button>
+            <h2 class="page-heading" id="page-heading">داشبورد</h2>
+            <div class="topbar-meta">
+                <div class="meta-chip date-chip" id="live-date"></div>
+                <div class="meta-chip clock-chip" id="live-clock"></div>
+            </div>
+        </header>
+
+        <main class="page-content">
+
+            <!-- داشبورد -->
+            <section id="page-dashboard" class="page active-page">
+
+                <!-- ردیف ۱: خلاصه ماموریت‌ها -->
+                <div class="dash-section-title"><span class="dash-section-icon">📋</span> خلاصه ماموریت‌ها</div>
+                <div class="stats-grid" id="stats-grid">
+                    <div class="stat-card stat-primary">
+                        <div class="stat-icon-wrap"><span class="stat-icon">📋</span></div>
+                        <div class="stat-body"><span class="stat-num" id="stat-missions">—</span><span class="stat-label">کل ماموریت‌ها</span></div>
+                    </div>
+                    <div class="stat-card stat-info">
+                        <div class="stat-icon-wrap"><span class="stat-icon">👤</span></div>
+                        <div class="stat-body"><span class="stat-num" id="stat-total">—</span><span class="stat-label">کل پرسنل</span></div>
+                    </div>
+                    <div class="stat-card stat-success">
+                        <div class="stat-icon-wrap"><span class="stat-icon">✅</span></div>
+                        <div class="stat-body"><span class="stat-num" id="stat-active">—</span><span class="stat-label">پرسنل فعال</span></div>
+                    </div>
+                    <div class="stat-card stat-accent">
+                        <div class="stat-icon-wrap"><span class="stat-icon">📊</span></div>
+                        <div class="stat-body"><span class="stat-num" id="stat-employment-rate">—</span><span class="stat-label">نرخ فعالیت</span></div>
+                    </div>
+                </div>
+
+                <!-- ردیف ۲: وضعیت ماموریت‌ها + دسترسی سریع -->
+                <div class="dashboard-row">
+                    <div class="chart-card">
+                        <div class="chart-card-header">
+                            <h3 class="chart-title">📊 وضعیت ماموریت‌ها</h3>
+                        </div>
+                        <div class="status-cards" id="mission-status">
+                            <div class="status-item status-green"><span class="status-num" id="stat-single">—</span><span class="status-label">انفرادی</span></div>
+                            <div class="status-item status-blue"><span class="status-num" id="stat-group">—</span><span class="status-label">گروهی</span></div>
+                            <div class="status-item status-teal"><span class="status-num" id="stat-supplied">—</span><span class="status-label">تامین شده</span></div>
+                            <div class="status-item status-orange"><span class="status-num" id="stat-unsupplied">—</span><span class="status-label">تامین نشده</span></div>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-card-header">
+                            <h3 class="chart-title">⚡ دسترسی سریع</h3>
+                        </div>
+                        <div class="quick-actions">
+                            <button class="qa-btn qa-gold" onclick="document.querySelector('[data-page=missions]').click()"><span class="qa-icon">📋</span><span class="qa-text">ثبت ماموریت</span></button>
+                            <button class="qa-btn qa-green" onclick="document.querySelector('[data-page=reports]').click()"><span class="qa-icon">📈</span><span class="qa-text">گزارش‌گیری</span></button>
+                            <button class="qa-btn qa-navy" onclick="document.querySelector('[data-page=personnel]').click()"><span class="qa-icon">👥</span><span class="qa-text">مدیریت پرسنل</span></button>
+                            <button class="qa-btn qa-blue" onclick="document.querySelector('[data-page=users]').click()"><span class="qa-icon">🔑</span><span class="qa-text">مدیریت کاربران</span></button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ردیف ۳: نمودار نوع ماموریت + نواحی -->
+                <div class="dashboard-row">
+                    <div class="chart-card chart-card-lg">
+                        <div class="chart-card-header">
+                            <h3 class="chart-title">📋 توزیع نوع ماموریت</h3>
+                            <span class="chart-badge" id="chart-mtype-total">0 حکم</span>
+                        </div>
+                        <div class="chart-body">
+                            <div class="chart-canvas-wrap"><div id="chart-mission-type"></div></div>
+                            <div class="chart-legend" id="legend-mission-type"></div>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-card-header">
+                            <h3 class="chart-title">🗺️ توزیع نواحی ماموریت</h3>
+                            <span class="chart-badge" id="chart-region-total">0 حکم</span>
+                        </div>
+                        <div class="hbar-list" id="chart-region">
+                            <div class="recent-empty">در حال بارگذاری...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ردیف ۴: آخرین ماموریت‌ها + آخرین پرسنل -->
+                <div class="dashboard-row">
+                    <div class="chart-card">
+                        <div class="chart-card-header">
+                            <h3 class="chart-title">🆕 آخرین ماموریت‌ها</h3>
+                        </div>
+                        <div class="recent-list" id="recent-missions">
+                            <div class="recent-empty">در حال بارگذاری...</div>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-card-header">
+                            <h3 class="chart-title">🆕 آخرین پرسنل</h3>
+                        </div>
+                        <div class="recent-list" id="recent-personnel">
+                            <div class="recent-empty">در حال بارگذاری...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ردیف ۵: نمودارهای پرسنل -->
+                <div class="dash-section-title"><span class="dash-section-icon">👥</span> آمار پرسنل</div>
+                <div class="dashboard-row">
+                    <div class="chart-card chart-card-lg">
+                        <div class="chart-card-header">
+                            <h3 class="chart-title">📊 توزیع نوع استخدام</h3>
+                            <span class="chart-badge" id="chart-type-total">0 نفر</span>
+                        </div>
+                        <div class="chart-body">
+                            <div class="chart-canvas-wrap"><div id="chart-emp-type"></div></div>
+                            <div class="chart-legend" id="legend-emp-type"></div>
+                        </div>
+                    </div>
+                    <div class="chart-card chart-card-lg">
+                        <div class="chart-card-header">
+                            <h3 class="chart-title">🎓 توزیع مدرک تحصیلی</h3>
+                            <span class="chart-badge" id="chart-degree-total">0 نفر</span>
+                        </div>
+                        <div class="chart-body">
+                            <div class="chart-canvas-wrap"><div id="chart-degree"></div></div>
+                            <div class="chart-legend" id="legend-degree"></div>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- پرسنل -->
+            <section id="page-personnel" class="page" style="display:none;">
+                <div class="section-toolbar">
+                    <button class="btn-primary" onclick="togglePerForm()">＋ ثبت پرسنل جدید</button>
+                    <div class="search-box">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" id="searchPer" class="search-input" placeholder="جستجو نام، کد ملی، شماره پرسنلی...">
+                    </div>
+                    <div class="toolbar-buttons">
+                        <label class="btn-tool import-btn" title="ورود از اکسل">📥 ورود اکسل<input type="file" id="importExcel" accept=".xlsx,.xls" style="display:none;"></label>
+                        <button class="btn-tool excel-btn" onclick="exportToExcel()">📤 خروجی اکسل</button>
+                        <button class="btn-tool print-btn" onclick="printTable()">🖨 پرینت</button>
+                    </div>
+                </div>
+
+                <!-- فرم ثبت/ویرایش -->
+                <div id="per-form-card" class="form-card collapsed">
+                    <div class="form-card-header">
+                        <h3 id="form-card-title">ثبت پرسنل جدید</h3>
+                        <button class="close-form-btn" onclick="closePerForm()">✕</button>
+                    </div>
+                    <input type="hidden" id="p_edit_id">
+                    <div class="form-grid-3">
+                        <div class="input-group"><label>نام <span class="req">*</span></label><input type="text" id="p_name"></div>
+                        <div class="input-group"><label>نام خانوادگی <span class="req">*</span></label><input type="text" id="p_lname"></div>
+                        <div class="input-group"><label>نام پدر</label><input type="text" id="p_father"></div>
+                        <div class="input-group"><label>کد ملی</label><input type="text" id="p_national_id" maxlength="10" placeholder="۱۰ رقم"></div>
+                        <div class="input-group"><label>شماره پرسنلی</label><input type="text" id="p_emp_num"></div>
+                        <div class="input-group"><label>تاریخ استخدام</label><input type="text" id="p_hire_date" placeholder="کلیک کنید" autocomplete="off" readonly></div>
+                        <div class="input-group"><label>نوع استخدام</label>
+                            <select id="p_emp_type"><option value="">انتخاب...</option></select>
+                        </div>
+                        <div class="input-group"><label>پست سازمانی</label><input type="text" id="p_org_post"></div>
+                        <div class="input-group"><label>عنوان شغل</label><input type="text" id="p_job_title"></div>
+                        <div class="input-group"><label>آخرین مدرک</label>
+                            <select id="p_last_degree"><option value="">انتخاب...</option></select>
+                        </div>
+                        <div class="input-group"><label>شماره تماس</label><input type="tel" id="p_phone"></div>
+                        <div class="input-group"><label>وضعیت</label>
+                            <select id="p_status"><option value="فعال">فعال</option><option value="غیرفعال">غیرفعال</option></select>
+                        </div>
+                        <div class="input-group span-full"><label>آدرس</label><input type="text" id="p_address"></div>
+                        <div class="input-group span-full"><label>توضیحات</label><textarea id="p_notes" rows="2"></textarea></div>
+                    </div>
+                    <div id="per-form-error" class="alert alert-error" style="display:none;"></div>
+                    <div class="form-actions">
+                        <button id="savePerBtn" class="btn-primary" onclick="savePer()">💾 ذخیره</button>
+                        <button id="cancelPerBtn" class="btn-ghost" onclick="closePerForm()">انصراف</button>
+                    </div>
+                </div>
+
+                <!-- جدول -->
+                <div class="table-wrapper">
+                    <table class="data-table" id="per-table">
+                        <thead><tr><th>ردیف</th><th>نام و نام خانوادگی</th><th>کد ملی</th><th>پرسنلی</th><th>شغل</th><th>پست</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+                        <tbody id="per-table-body"></tbody>
+                    </table>
+                    <div id="per-empty" class="empty-state-improved" style="display:none;">
+                        <div class="empty-icon">👥</div>
+                        <div class="empty-title">هنوز پرسنلی ثبت نشده</div>
+                        <div class="empty-desc">روی «ثبت پرسنل جدید» کلیک کنید تا اولین پرسنل را ثبت کنید</div>
+                        <button class="btn-primary" onclick="togglePerForm()" style="margin-top:8px;">ثبت اولین پرسنل</button>
+                    </div>
+                    <div class="pagination-wrapper" id="per-pagination"></div>
+                </div>
+            </section>
+
+            <!-- کاربران -->
+            <section id="page-users" class="page" style="display:none;">
+                <div class="section-toolbar">
+                    <button class="btn-primary" onclick="toggleUserForm()">＋ کاربر جدید</button>
+                    <button class="btn-ghost" onclick="openSelfPasswordModal()" style="font-size:12px;">🔑 تغییر رمز خودم</button>
+                    <div class="search-box">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" id="searchUser" class="search-input" placeholder="جستجوی نام کاربری...">
+                    </div>
+                </div>
+                <div id="user-form-card" class="form-card collapsed">
+                    <div class="form-card-header">
+                        <h3 id="user-form-title">افزودن کاربر</h3>
+                        <button class="close-form-btn" onclick="closeUserForm()">✕</button>
+                    </div>
+                    <input type="hidden" id="editUserId" value="">
+                    <div class="form-grid-3">
+                        <div class="input-group"><label>نام کاربری <span class="req">*</span></label><input type="text" id="newUsername" placeholder="حداقل ۳ کاراکتر، حروف و اعداد"></div>
+                        <div class="input-group"><label id="pw-label">رمز عبور <span class="req">*</span></label>
+                            <div class="password-wrap">
+                                <input type="password" id="newPassword" placeholder="حداقل ۴ کاراکتر">
+                                <button class="eye-btn" type="button" onclick="toggleNewUserPass()" title="نمایش/پنهان">👁</button>
+                            </div>
+                            <div id="pw-strength" class="pw-strength" style="display:none;">
+                                <div class="pw-strength-bar"><div id="pw-strength-fill"></div></div>
+                                <span id="pw-strength-text"></span>
+                            </div>
+                        </div>
+                        <div class="input-group"><label>سطح دسترسی</label>
+                            <select id="newRole"><option value="admin">مدیر کل</option><option value="user">کاربر عادی</option></select>
+                        </div>
+                    </div>
+                    <div class="form-grid-3" style="padding-top:0;">
+                        <div class="input-group"><label>وضعیت</label>
+                            <select id="newStatus"><option value="active">فعال</option><option value="disabled">غیرفعال</option></select>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn-primary" id="btn-save-user" onclick="saveUser()">💾 ذخیره</button>
+                        <button class="btn-ghost" onclick="closeUserForm()">انصراف</button>
+                    </div>
+                </div>
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead><tr><th>ردیف</th><th>نام کاربری</th><th>سطح دسترسی</th><th>وضعیت</th><th>تاریخ ایجاد</th><th>آخرین ورود</th><th>تعداد ورودها</th><th>عملیات</th></tr></thead>
+                        <tbody id="users-table-body"></tbody>
+                    </table>
+                </div>
+            </section>
+        
+            <!-- صفحه ماموریت ها -->
+            <section id="page-missions" class="page" style="display:none;">
+    <div class="section-toolbar">
+        <button class="btn-primary" onclick="toggleMissionForm()">＋ ثبت ماموریت جدید</button>
+        <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="searchMission" class="search-input" placeholder="جستجو شماره حکم، نام، محل ماموریت...">
+        </div>
+        <div class="toolbar-buttons">
+            <button class="btn-tool excel-btn" onclick="exportMissionsToExcel()">📤 خروجی اکسل</button>
+        </div>
+    </div>
+    
+    <div id="mission-form-card" class="form-card collapsed">
+        <div class="form-card-header">
+            <h3 id="mission-form-title">صدور حکم ماموریت</h3>
+            <button class="close-form-btn" onclick="closeMissionForm()">✕</button>
+        </div>
+        
+        <div class="form-grid-3">
+            <div class="input-group"><label>شماره حکم (خودکار)</label><input type="text" id="m_decree" readonly style="background:#f8fafc;color:#64748b;" placeholder="خودکار"></div>
+            <div class="input-group"><label>نام <span class="req">*</span></label><input type="text" id="m_name" placeholder="تایپ کنید..." autocomplete="off"></div>
+            <div class="input-group"><label>نام خانوادگی</label><input type="text" id="m_lname" readonly style="background:#f8fafc"></div>
+            
+            <div class="input-group"><label>کد پرسنلی</label><input type="text" id="m_emp_num" readonly style="background:#f8fafc"></div>
+            <div class="input-group"><label>عنوان شغل</label><input type="text" id="m_job_title" readonly style="background:#f8fafc"></div>
+            <div class="input-group"><label>نوع ماموریت</label>
+                <select id="m_type"><option value="">انتخاب...</option></select>
+            </div>
+
+            <div class="input-group"><label>نوع دستگاه</label>
+                <select id="m_device"><option value="">انتخاب...</option></select>
+            </div>
+            <div class="input-group"><label>نوع تعمیرات</label>
+                <select id="m_repair"><option value="">انتخاب...</option></select>
+            </div>
+            <div class="input-group"><label>ناحیه</label>
+                <select id="m_region"><option value="">انتخاب...</option></select>
+            </div>
+
+            <div class="input-group"><label>محل ماموریت</label><input type="text" id="m_location"></div>
+            <div class="input-group"><label>موضوع ماموریت</label><input type="text" id="m_subject"></div>
+            <div class="input-group"><label>سریال دستگاه</label><input type="text" id="m_serial"></div>
+            <div class="input-group"><label>مدت ماموریت</label><input type="text" id="m_duration" placeholder="مثلا: 3 روز"></div>
+            <div class="input-group"><label>ساعت اضافکاری</label><input type="number" id="m_overtime"></div>
+            
+            <div class="input-group"><label>تاریخ شروع <span class="req">*</span></label><input type="text" id="m_start" placeholder="کلیک کنید" autocomplete="off"></div>
+            <div class="input-group"><label>تاریخ پایان <span class="req">*</span></label><input type="text" id="m_end" placeholder="کلیک کنید" autocomplete="off"></div>
+            <div class="input-group"><label>تاریخ صدور <span class="req">*</span></label><input type="text" id="m_issue" placeholder="کلیک کنید" autocomplete="off"></div>
+            
+            <div class="input-group span-full" style="margin-top:8px; border-top:1.5px solid #f1f5f9; padding-top:20px;">
+                <label style="font-weight:800; margin-bottom:12px; display:flex; align-items:center; gap:6px; color:var(--navy); font-size:13px;">🏷️ وضعیت و نوع سفر:</label>
+                <div class="checkbox-group">
+                    <label class="modern-check"><input type="checkbox" id="m_ch_single" value="1"><span class="checkmark"></span>انفرادی</label>
+                    <label class="modern-check"><input type="checkbox" id="m_ch_group" value="1"><span class="checkmark"></span>گروهی</label>
+                    <label class="modern-check"><input type="checkbox" id="m_ch_supplied" value="1"><span class="checkmark"></span>تامین شده</label>
+                    <label class="modern-check"><input type="checkbox" id="m_ch_unsupplied" value="1"><span class="checkmark"></span>تامین نشده</label>
+                    <label class="modern-check"><input type="checkbox" id="m_ch_issued" value="1"><span class="checkmark"></span>صدور</label>
+                    <label class="modern-check"><input type="checkbox" id="m_ch_extended" value="1"><span class="checkmark"></span>تمدید</label>
+                    <label class="modern-check"><input type="checkbox" id="m_ch_gov" value="1"><span class="checkmark"></span>دولتی</label>
+                </div>
+                <label style="font-weight:800; margin:12px 0 10px; display:flex; align-items:center; gap:6px; color:var(--navy); font-size:13px;">🚗 وسیله نقلیه:</label>
+                <div class="checkbox-group">
+                    <label class="modern-check"><input type="checkbox" id="m_ch_plane" value="1"><span class="checkmark"></span>هواپیما</label>
+                    <label class="modern-check"><input type="checkbox" id="m_ch_train" value="1"><span class="checkmark"></span>قطار</label>
+                    <label class="modern-check"><input type="checkbox" id="m_ch_agency" value="1"><span class="checkmark"></span>آژانس</label>
+                    <label class="modern-check"><input type="checkbox" id="m_ch_bus" value="1"><span class="checkmark"></span>اتوبوس</label>
+                    <label class="modern-check"><input type="checkbox" id="m_ch_personal" value="1"><span class="checkmark"></span>شخصی</label>
+                </div>
+            </div>
+        </div>
+        
+        <div id="mission-form-error" class="alert alert-error" style="display:none;"></div>
+        <div class="form-actions">
+            <button class="btn-primary" id="saveMissionBtn" onclick="saveAdvancedMission()">💾 ذخیره حکم ماموریت</button>
+            <button class="btn-ghost" onclick="closeMissionForm()">انصراف</button>
+        </div>
+    </div>
+
+    <div class="table-wrapper">
+        <table class="data-table">
+            <thead><tr><th>ردیف</th><th>شماره حکم</th><th>نام پرسنل</th><th>نوع ماموریت</th><th>محل ماموریت</th><th>تاریخ شروع</th><th>عملیات</th></tr></thead>
+            <tbody id="missions-table-body"><tr><td colspan="7"><div class="empty-state-improved"><div class="empty-icon">📋</div><div class="empty-title">هنوز ماموریتی ثبت نشده</div><div class="empty-desc">روی «ثبت ماموریت جدید» کلیک کنید</div></div></td></tr></tbody>
+        </table>
+        <div class="pagination-wrapper" id="missions-pagination"></div>
+    </div>
+</section>
+
+            <!-- صفحه گزارش‌گیری -->
+            <section id="page-reports" class="page" style="display:none;">
+                <div class="reports-toolbar">
+                    <div class="reports-filter-card">
+                        <div class="filter-header">
+                            <div class="filter-header-right">
+                                <span class="filter-header-icon">📊</span>
+                                <div>
+                                    <h3>فیلترهای گزارش</h3>
+                                    <span class="filter-subtitle">فیلترها را تنظیم کرده و جستجو کنید</span>
+                                </div>
+                            </div>
+                            <button class="btn-expand-all" onclick="toggleAllGroups()" title="باز/بستن همه">
+                                <span id="expand-icon">▼</span>
+                            </button>
+                        </div>
+
+                        <!-- گروه ۱: اطلاعات پرسنل -->
+                        <div class="filter-group collapsed">
+                            <div class="filter-group-header" onclick="toggleGroup(this)">
+                                <div class="filter-group-header-right">
+                                    <span class="filter-group-icon">👤</span>
+                                    <span class="filter-group-title">اطلاعات پرسنل</span>
+                                </div>
+                                <span class="group-toggle-icon">▲</span>
+                            </div>
+                            <div class="filter-group-body">
+                                <div class="filter-row-4">
+                                    <div class="input-group"><label>نام</label><input type="text" id="r_name" placeholder="مثال: علی"></div>
+                                    <div class="input-group"><label>نام خانوادگی</label><input type="text" id="r_lname" placeholder="مثال: رضایی"></div>
+                                    <div class="input-group"><label>شماره پرسنلی</label><input type="text" id="r_emp_num" placeholder="کد پرسنلی"></div>
+                                    <div class="input-group"><label>شماره حکم</label><input type="text" id="r_decree" placeholder="شماره حکم"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- گروه ۲: اطلاعات ماموریت -->
+                        <div class="filter-group collapsed">
+                            <div class="filter-group-header" onclick="toggleGroup(this)">
+                                <div class="filter-group-header-right">
+                                    <span class="filter-group-icon">🎯</span>
+                                    <span class="filter-group-title">اطلاعات ماموریت</span>
+                                </div>
+                                <span class="group-toggle-icon">▲</span>
+                            </div>
+                            <div class="filter-group-body">
+                                <div class="filter-row-3">
+                                    <div class="input-group"><label>نوع ماموریت</label>
+                                        <select id="r_mission_type"><option value="">همه</option></select>
+                                    </div>
+                                    <div class="input-group"><label>ناحیه</label>
+                                        <select id="r_region"><option value="">همه</option></select>
+                                    </div>
+                                    <div class="input-group"><label>محل ماموریت</label><input type="text" id="r_location" placeholder="نام محل"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- گروه ۳: تجهیزات و تاریخ -->
+                        <div class="filter-group collapsed">
+                            <div class="filter-group-header" onclick="toggleGroup(this)">
+                                <div class="filter-group-header-right">
+                                    <span class="filter-group-icon">🔧</span>
+                                    <span class="filter-group-title">تجهیزات و تاریخ</span>
+                                </div>
+                                <span class="group-toggle-icon">▲</span>
+                            </div>
+                            <div class="filter-group-body">
+                                <div class="filter-row-3">
+                                    <div class="input-group"><label>نوع دستگاه</label>
+                                        <select id="r_device"><option value="">همه</option></select>
+                                    </div>
+                                    <div class="input-group"><label>سریال دستگاه</label><input type="text" id="r_serial" placeholder="شماره سریال"></div>
+                                    <div class="input-group"><label> </label><div></div></div>
+                                </div>
+                                <div class="filter-divider"></div>
+                                <div class="filter-row-4">
+                                    <div class="input-group"><label>تاریخ شروع از</label><input type="text" id="r_start_from" placeholder="از تاریخ" readonly></div>
+                                    <div class="input-group"><label>تاریخ شروع تا</label><input type="text" id="r_start_to" placeholder="تا تاریخ" readonly></div>
+                                    <div class="input-group"><label>تاریخ پایان از</label><input type="text" id="r_end_from" placeholder="از تاریخ" readonly></div>
+                                    <div class="input-group"><label>تاریخ پایان تا</label><input type="text" id="r_end_to" placeholder="تا تاریخ" readonly></div>
+                                </div>
+                                <div class="filter-presets">
+                                    <span class="preset-label">⏱️ میانبر تاریخ:</span>
+                                    <button class="preset-btn" onclick="setDatePreset('today')">امروز</button>
+                                    <button class="preset-btn" onclick="setDatePreset('this_week')">این هفته</button>
+                                    <button class="preset-btn" onclick="setDatePreset('this_month')">این ماه</button>
+                                    <button class="preset-btn" onclick="setDatePreset('last_month')">ماه قبل</button>
+                                    <button class="preset-btn" onclick="setDatePreset('this_year')">سال جاری</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- قالب‌های سریع -->
+                        <div class="quick-templates">
+                            <span class="preset-label">📋 قالب‌های سریع:</span>
+                            <button class="preset-btn preset-template" onclick="quickReport('personnel')">👤 گزارش پرسنل</button>
+                            <button class="preset-btn preset-template" onclick="quickReport('monthly')">📅 گزارش ماهانه</button>
+                            <button class="preset-btn preset-template" onclick="quickReport('device')">🔧 گزارش دستگاه</button>
+                            <button class="preset-btn preset-template" onclick="quickReport('region')">📍 گزارش منطقه</button>
+                        </div>
+
+                        <!-- دکمه‌های عملیات -->
+                        <div class="filter-actions">
+                            <button class="btn-gold" onclick="runReport()" id="report-search-btn">
+                                <span>🔍</span> جستجوی گزارش
+                            </button>
+                            <button class="btn-reset" onclick="resetReportFilters()">🔄 پاک کردن همه</button>
+                            <span class="report-count-badge" id="report-count">۰ نتیجه</span>
+                            <div class="report-loading" id="report-loading" style="display:none;"><span class="spinner"></span> در حال جستجو...</div>
+                        </div>
+                    </div>
+
+                    <!-- تراشه‌های فیلتر فعال -->
+                    <div class="filter-chips" id="filter-chips" style="display:none;"></div>
+                </div>
+
+                <div class="reports-result-card" id="report-result-card" style="display:none;">
+                    <div class="report-result-header">
+                        <div class="result-header-right">
+                            <span class="result-header-icon">📋</span>
+                            <h3>نتایج گزارش</h3>
+                        </div>
+                        <div class="report-actions">
+                            <button class="btn-tool print-btn" onclick="printReport()">🖨️ چاپ گزارش</button>
+                            <button class="btn-tool excel-btn" onclick="exportReportToExcel()">📤 خروجی اکسل</button>
+                        </div>
+                    </div>
+                    <div class="report-summary" id="report-summary" style="display:none;"></div>
+                    <div class="table-wrapper">
+                        <table class="data-table sortable-table" id="report-table">
+                            <thead>
+                                <tr>
+                                    <th data-sort="row">ردیف <span class="sort-icon">↕</span></th>
+                                    <th data-sort="decree_num">شماره حکم <span class="sort-icon">↕</span></th>
+                                    <th data-sort="name">نام و نام خانوادگی <span class="sort-icon">↕</span></th>
+                                    <th data-sort="emp_num">شماره پرسنلی <span class="sort-icon">↕</span></th>
+                                    <th data-sort="mission_type">نوع ماموریت <span class="sort-icon">↕</span></th>
+                                    <th data-sort="device_type">نوع دستگاه <span class="sort-icon">↕</span></th>
+                                    <th data-sort="region">ناحیه <span class="sort-icon">↕</span></th>
+                                    <th data-sort="location">محل ماموریت <span class="sort-icon">↕</span></th>
+                                    <th data-sort="start_date">تاریخ شروع <span class="sort-icon">↕</span></th>
+                                    <th data-sort="end_date">تاریخ پایان <span class="sort-icon">↕</span></th>
+                                    <th data-sort="duration">مدت <span class="sort-icon">↕</span></th>
+                                </tr>
+                            </thead>
+                            <tbody id="report-table-body"></tbody>
+                            <tfoot id="report-table-foot" style="display:none;"></tfoot>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- بخش پشتیبان‌گیری -->
+            <section id="page-backup" class="page" style="display:none;">
+                <div class="backup-card">
+                    <div class="backup-header">
+                        <span class="backup-icon">💾</span>
+                        <div>
+                            <h3>پشتیبان‌گیری از دیتابیس</h3>
+                            <p class="backup-desc">فایل پشتیبان دیتابیس SQLite را دانلود کنید</p>
+                        </div>
+                    </div>
+                    <div class="backup-body">
+                        <div class="backup-info">
+                            <div class="backup-info-item">
+                                <span class="backup-info-label">نوع فایل:</span>
+                                <span class="backup-info-value">SQLite Database (.db)</span>
+                            </div>
+                            <div class="backup-info-item">
+                                <span class="backup-info-label">نام فایل:</span>
+                                <span class="backup-info-value" id="backup-filename">RSTC_Backup_YYYY-MM-DD.db</span>
+                            </div>
+                            <div class="backup-info-item">
+                                <span class="backup-info-label">زمان:</span>
+                                <span class="backup-info-value" id="backup-time">—</span>
+                            </div>
+                        </div>
+                        <button class="btn-backup" onclick="backupDatabase()">
+                            <span class="btn-backup-icon">📥</span>
+                            دانلود پشتیبان
+                        </button>
+                    </div>
+                </div>
+
+                <div class="backup-card" style="margin-top:16px;">
+                    <div class="backup-header restore-header">
+                        <span class="backup-icon">🔄</span>
+                        <div>
+                            <h3>بازیابی از پشتیبان</h3>
+                            <p class="backup-desc">فایل پشتیبان قبلی (.db) را آپلود کنید تا بازیابی شود</p>
+                        </div>
+                    </div>
+                    <div class="backup-body">
+                        <div class="restore-warning">
+                            <span class="restore-warning-icon">⚠️</span>
+                            <div>
+                                <strong>هشدار:</strong> بازیابی دیتابیس، تمام اطلاعات فعلی را با اطلاعات پشتیبان جایگزین می‌کند. این عملیات غیرقابل بازگشت است.
+                            </div>
+                        </div>
+                        <div class="restore-upload-area" id="restore-upload-area">
+                            <input type="file" id="restoreFile" accept=".db" style="display:none;" onchange="handleRestoreFile(this)">
+                            <div class="restore-upload-content" onclick="document.getElementById('restoreFile').click()">
+                                <span class="restore-upload-icon">📁</span>
+                                <p>فایل پشتیبان (.db) را اینجا رها کنید یا کلیک کنید</p>
+                                <span class="restore-upload-hint">فرمت پذیرفته شده: .db</span>
+                            </div>
+                        </div>
+                        <div class="restore-selected-file" id="restore-selected-file" style="display:none;">
+                            <span class="restore-file-icon">📄</span>
+                            <span id="restore-file-name">—</span>
+                            <button class="restore-file-remove" onclick="removeRestoreFile()">✕</button>
+                        </div>
+                        <button class="btn-restore" id="btn-restore" onclick="restoreDatabase()" disabled>
+                            <span class="btn-backup-icon">🔄</span>
+                            بازیابی دیتابیس
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="page-audit" class="page" style="display:none;">
+                <div class="top-bar">
+                    <div class="search-box">
+                        <input type="text" id="audit-search" placeholder="جستجو..." oninput="loadAuditLog()">
+                    </div>
+                    <select id="audit-filter-entity" onchange="loadAuditLog()" style="padding:8px;border-radius:8px;border:1px solid #d0d5dd;font-size:13px;">
+                        <option value="">همه عملیات</option>
+                        <option value="User">کاربران</option>
+                        <option value="Personnel">پرسنل</option>
+                        <option value="Mission">ماموریت‌ها</option>
+                        <option value="Option">گزینه‌ها</option>
+                    </select>
+                    <button class="btn btn-view" onclick="loadAuditLog()">🔄 بروزرسانی</button>
+                </div>
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>تاریخ</th>
+                                <th>کاربر</th>
+                                <th>عملیات</th>
+                                <th>بخش</th>
+                                <th>جزئیات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="audit-table-body">
+                            <tr><td colspan="5" style="text-align:center;padding:20px;">در حال بارگذاری...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+        </main>
+    </div>
+</div>
+
+<!-- Modal جزئیات -->
+<div id="detailsModal" class="modal-overlay" onclick="closeModal(event)">
+    <div class="modal-box" onclick="event.stopPropagation()">
+        <div class="modal-head"><h3>جزئیات</h3><button class="close-form-btn" onclick="closeModal()">✕</button></div>
+        <div id="modal-body" class="modal-body"></div>
+    </div>
+</div>
+
+<!-- Modal تغییر رمز -->
+<div id="passwordModal" class="modal-overlay" onclick="closePasswordModal(event)">
+    <div class="modal-box" onclick="event.stopPropagation()">
+        <div class="modal-head"><h3 id="passwordModalTitle">تغییر رمز عبور</h3><button class="close-form-btn" onclick="closePasswordModal()">✕</button></div>
+        <div class="modal-body">
+            <input type="hidden" id="pw_user_id">
+            <div class="input-group" style="margin-bottom:14px;">
+                <label>رمز عبور جدید</label>
+                <div class="password-wrap">
+                    <input type="password" id="newPwInput" placeholder="حداقل ۴ کاراکتر">
+                    <button class="eye-btn" type="button" onclick="toggleModalPw('newPwInput')" title="نمایش/پنهان">👁</button>
+                </div>
+                <div id="modal-pw-strength" class="pw-strength" style="display:none;">
+                    <div class="pw-strength-bar"><div id="modal-pw-strength-fill"></div></div>
+                    <span id="modal-pw-strength-text"></span>
+                </div>
+            </div>
+            <div class="input-group" style="margin-bottom:14px;">
+                <label>تأیید رمز عبور</label>
+                <div class="password-wrap">
+                    <input type="password" id="confirmPwInput" placeholder="رمز را دوباره وارد کنید">
+                    <button class="eye-btn" type="button" onclick="toggleModalPw('confirmPwInput')" title="نمایش/پنهان">👁</button>
+                </div>
+                <div id="pw-match" class="pw-match" style="display:none;"></div>
+            </div>
+            <div id="pw-error" class="alert alert-error" style="display:none;"></div>
+            <div class="form-actions" style="padding:0;">
+                <button class="btn-primary" onclick="savePassword()">💾 ذخیره رمز جدید</button>
+                <button class="btn-ghost" onclick="closePasswordModal()">انصراف</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal مدیریت گزینه‌ها -->
+<div id="optionsModal" class="modal-overlay" onclick="closeOptionsModal(event)">
+    <div class="modal-box options-modal-box" onclick="event.stopPropagation()">
+        <div class="modal-head"><h3>⚙️ مدیریت گزینه‌های سیستم</h3><button class="close-form-btn" onclick="closeOptionsModal()">✕</button></div>
+        <div class="modal-body">
+            <div class="options-layout">
+                <div class="options-sidebar-list" id="options-sidebar-list"></div>
+                <div class="options-main">
+                    <div class="options-header">
+                        <h4 id="options-field-label">انتخاب کنید</h4>
+                        <div class="options-add-row">
+                            <input type="text" id="new-option-input" placeholder="گزینه جدید..." onkeydown="if(event.key==='Enter')addOption()">
+                            <button class="btn-primary" onclick="addOption()">افزودن</button>
+                        </div>
+                    </div>
+                    <div class="options-list" id="options-list-container"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal نتیجه ورود اکسل -->
+<div id="importModal" class="modal-overlay" onclick="closeImportResult(event)">
+    <div class="modal-box" onclick="event.stopPropagation()">
+        <div class="modal-head"><h3 id="importTitle">گزارش ورود اکسل</h3><button class="close-form-btn" onclick="closeImportResult()">✕</button></div>
+        <div id="importBody" class="modal-body"></div>
+    </div>
+</div>
+
+<script src="script.js?v=35"></script>
+
+<!-- قالب پرینت ماموریت -->
+<div id="print-mission-area" class="print-area">
+    <div class="print-header">
+        <h2>شرکت RSTC</h2>
+        <h3>فرم درخواست ماموریت کاری</h3>
+    </div>
+    <table class="print-table">
+        <tr><th width="20%">شماره ماموریت:</th><td id="p_m_num"></td><th width="20%">تاریخ ثبت:</th><td id="p_m_date"></td></tr>
+        <tr><th>نام و نام خانوادگی:</th><td id="p_m_name"></td><th>شماره پرسنلی:</th><td id="p_m_empnum"></td></tr>
+        <tr><th>سمت سازمانی:</th><td id="p_m_post"></td><th>وسیله نقلیه:</th><td id="p_m_transport"></td></tr>
+        <tr><th>مقصد:</th><td colspan="3" id="p_m_dest"></td></tr>
+        <tr><th>تاریخ شروع:</th><td id="p_m_start"></td><th>تاریخ پایان:</th><td id="p_m_end"></td></tr>
+        <tr><th>شرح ماموریت:</th><td colspan="3" id="p_m_purpose" style="min-height: 80px; text-align: justify;"></td></tr>
+    </table>
+    <div class="print-signatures">
+        <div class="sig-box"><p>امضای کارمند</p><div class="sig-line"></div></div>
+        <div class="sig-box"><p>تایید مدیر مستقیم</p><div class="sig-line"></div></div>
+        <div class="sig-box"><p>مهر و امضای مدیریت منابع انسانی</p><div class="sig-line"></div></div>
+    </div>
+</div>
+
+</body>
+</html>
+
