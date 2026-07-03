@@ -1,7 +1,6 @@
 require('dotenv').config();
 const express = require('express');
-const sqlite3 = require('sqlite3');
-const { promisify } = require('util');
+const Database = require('better-sqlite3');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
@@ -63,13 +62,21 @@ setInterval(() => { const now = Date.now(); for (const [ip, r] of loginAttempts.
 // در محیط لوکال از فایل کنار پروژه استفاده می‌شود.
 // در Railway با متغیر DB_PATH به مسیر Volume دائمی اشاره می‌کنیم تا دیتا با هر ری‌استارت پاک نشود.
 const DB_PATH = process.env.DB_PATH || './rstc_database.db';
-const db = new sqlite3.Database(DB_PATH, err => {
-    if (err) console.error(err.message);
-    else console.log('✅ DB Connected:', DB_PATH);
-});
-const dbRun = promisify(db.run.bind(db));
-const dbGet = promisify(db.get.bind(db));
-const dbAll = promisify(db.all.bind(db));
+const db = new Database(DB_PATH);
+db.pragma('journal_mode = WAL');
+console.log('✅ DB Connected:', DB_PATH);
+
+// توابع wrapper با همان امضای قبلی (async/await) تا بقیه کد بدون تغییر کار کند
+async function dbRun(sql, params = []) {
+    const info = db.prepare(sql).run(params);
+    return { lastID: info.lastInsertRowid, changes: info.changes };
+}
+async function dbGet(sql, params = []) {
+    return db.prepare(sql).get(params);
+}
+async function dbAll(sql, params = []) {
+    return db.prepare(sql).all(params);
+}
 
 async function hashPassword(p) { return bcrypt.hash(p, 10); }
 function legacyHash(p) { return crypto.createHash('sha256').update(p).digest('hex'); }
