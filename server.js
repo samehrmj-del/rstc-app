@@ -406,8 +406,11 @@ function validatePersonnel(body) {
     if (!body.name || !body.name.trim()) errors.push('نام الزامی است.');
     if (!body.lname || !body.lname.trim()) errors.push('نام خانوادگی الزامی است.');
     if (body.national_id != null && body.national_id !== '') {
-        const nid = String(body.national_id).trim();
+        let nid = String(body.national_id).trim();
+        // اگر کمتر از ۱۰ رقم است (صفرهای اول حذف شده)، padding می‌کنیم
+        if (/^\d{1,9}$/.test(nid)) nid = nid.padStart(10, '0');
         if (!/^\d{10}$/.test(nid)) errors.push('کد ملی باید ۱۰ رقم باشد.');
+        else body.national_id = nid;
     }
     if (body.phone && !/^[0-9+\-\s]{7,15}$/.test(body.phone.trim())) errors.push('شماره تماس نامعتبر است.');
     return errors;
