@@ -135,12 +135,26 @@ function _jalaliToday() {
 let _dpActiveInput = null;
 const _dp = { jy: 1404, jm: 1, jd: 1, todayJ: { jy: 1404, jm: 1, jd: 1 } };
 
+// اگر کاربر با دکمه‌های ماه قبل/بعد از بازه اولیه سال‌ها خارج شود، این تابع
+// سال جدید را در جای درست (مرتب) به دراپ‌داون اضافه می‌کند تا تقویم هرگز قفل نشود
+function _dpEnsureYearOption(selectEl, year) {
+    const has = Array.from(selectEl.options).some(o => +o.value === year);
+    if (has) return;
+    const opt = document.createElement('option');
+    opt.value = year; opt.textContent = year;
+    const insertBefore = Array.from(selectEl.options).find(o => +o.value > year);
+    if (insertBefore) selectEl.insertBefore(opt, insertBefore);
+    else selectEl.appendChild(opt);
+}
+
 function _dpRender() {
     const popup = document.getElementById('dp-popup');
     if (!popup) return;
     const selYear  = document.getElementById('dp-sel-year');
     const selMonth = document.getElementById('dp-sel-month');
     if (!selYear || !selMonth) return;
+    // اگر با دکمه‌های ماه قبل/بعد از بازه اولیه دراپ‌داون خارج شدیم، گزینه جدید را اضافه می‌کنیم
+    _dpEnsureYearOption(selYear, _dp.jy);
     selYear.value  = _dp.jy;
     selMonth.value = _dp.jm;
     const daysC = document.getElementById('dp-days');
@@ -200,8 +214,10 @@ function _dpEnsurePopup() {
     popup.id = 'dp-popup';
     popup.innerHTML = `
         <div class="dp-selects">
+            <button type="button" id="dp-prev-month" class="dp-nav-btn" title="ماه قبل">‹</button>
             <select id="dp-sel-year"></select>
             <select id="dp-sel-month"></select>
+            <button type="button" id="dp-next-month" class="dp-nav-btn" title="ماه بعد">›</button>
         </div>
         <div class="dp-weekdays">
             <span>ش</span><span>ی</span><span>د</span><span>س</span><span>چ</span><span>پ</span><span>ج</span>
@@ -214,11 +230,12 @@ function _dpEnsurePopup() {
     document.body.appendChild(popup);
 
     // پر کردن سال و ماه — فقط یک بار
+    // ✅ بازه‌ی سال‌ها: حداقل ۵۰ سال قبل تا ۲۰ سال بعد از سال جاری
     const todayJ  = _jalaliToday();
     _dp.todayJ    = todayJ;
     const selYear  = popup.querySelector('#dp-sel-year');
     const selMonth = popup.querySelector('#dp-sel-month');
-    for (let y = todayJ.jy - 10; y <= todayJ.jy + 5; y++) {
+    for (let y = todayJ.jy - 50; y <= todayJ.jy + 20; y++) {
         const o = document.createElement('option'); o.value = y; o.textContent = y; selYear.appendChild(o);
     }
     jMonths.forEach((m, i) => {
@@ -228,6 +245,22 @@ function _dpEnsurePopup() {
     // onchange فقط یک بار تعریف می‌شود — از _dp.state مشترک استفاده می‌کند
     selYear.addEventListener('change', e => { _dp.jy = +e.target.value; _dp.jd = 1; _dpRender(); });
     selMonth.addEventListener('change', e => { _dp.jm = +e.target.value; _dp.jd = 1; _dpRender(); });
+
+    // ✅ دکمه‌های پیمایش سریع ماه قبل/بعد — بدون نیاز به باز کردن دراپ‌داون
+    popup.querySelector('#dp-prev-month').addEventListener('click', e => {
+        e.stopPropagation();
+        _dp.jm -= 1;
+        if (_dp.jm < 1) { _dp.jm = 12; _dp.jy -= 1; }
+        _dp.jd = 1;
+        _dpRender();
+    });
+    popup.querySelector('#dp-next-month').addEventListener('click', e => {
+        e.stopPropagation();
+        _dp.jm += 1;
+        if (_dp.jm > 12) { _dp.jm = 1; _dp.jy += 1; }
+        _dp.jd = 1;
+        _dpRender();
+    });
 
     // دکمه امروز
     popup.querySelector('#dp-today-btn').addEventListener('click', e => {
