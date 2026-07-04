@@ -184,10 +184,13 @@ async function initializeDatabase() {
         )`);
         await dbRun("CREATE INDEX IF NOT EXISTS idx_decree_num ON Missions(decree_num)");
 
-        const adminPass = process.env.INIT_ADMIN_PASSWORD;
-        if (adminPass) {
+        const existingAdmin = await dbGet("SELECT id FROM Users WHERE username = 'admin' AND role = 'admin'");
+        if (!existingAdmin) {
+            const adminPass = process.env.INIT_ADMIN_PASSWORD || 'admin1234';
             const hashed = await hashPassword(adminPass);
-            await dbRun(`INSERT OR IGNORE INTO Users (username, password, role, status, created_at) VALUES (?, ?, ?, ?, ?)`, ['admin', hashed, 'admin', 'active', new Date().toISOString()]);
+            await dbRun(`INSERT INTO Users (username, password, role, status, created_at) VALUES (?, ?, ?, ?, ?)`,
+                ['admin', hashed, 'admin', 'active', new Date().toISOString()]);
+            console.log(`✅ Admin user created (password: ${process.env.INIT_ADMIN_PASSWORD ? 'from INIT_ADMIN_PASSWORD' : 'default: admin1234'})`);
         }
 
         await dbRun(`CREATE TABLE IF NOT EXISTS AuditLog (
