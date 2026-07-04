@@ -590,8 +590,12 @@ textarea { resize:vertical; min-height:70px; }
 .modern-check:has(input:checked) { background:#eef2ff; border-color:var(--navy); color:var(--navy); }
 
 /* ===== TABLE ===== */
-.table-wrapper { background:var(--white); border-radius:var(--radius); border:1.5px solid var(--border); box-shadow:var(--shadow-sm); overflow:hidden; }
-.data-table { width:100%; border-collapse:collapse; }
+/* ✅ FIX: قبلاً overflow:hidden بود که باعث می‌شد ستون‌های اضافه جدول در موبایل
+   به‌جای اسکرول‌شدن، کاملاً بریده و مخفی شوند. حالا با اسکرول افقی نمایش داده می‌شوند. */
+.table-wrapper { background:var(--white); border-radius:var(--radius); border:1.5px solid var(--border); box-shadow:var(--shadow-sm); overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; position:relative; }
+.data-table { width:100%; min-width:680px; border-collapse:collapse; }
+/* جدول گزارش‌گیری ۱۱ ستون دارد و به فضای بیشتری برای خوانایی نیاز دارد */
+#report-table { min-width:1100px; }
 .data-table th {
     background:var(--navy); color:var(--gold);
     padding:12px 14px; text-align:right; font-size:12px; font-weight:700;
@@ -600,6 +604,16 @@ textarea { resize:vertical; min-height:70px; }
 .data-table td { padding:11px 14px; text-align:right; font-size:13px; border-bottom:1px solid var(--border); }
 .data-table tbody tr:last-child td { border-bottom:none; }
 .data-table tbody tr:hover { background:#f8fafc; }
+
+/* راهنمای بصری اسکرول افقی جدول در موبایل — فقط زیر ۷۶۸ پیکسل نمایش داده می‌شود */
+.table-scroll-hint { display:none; }
+@media (max-width:768px) {
+    .table-scroll-hint {
+        display:flex; align-items:center; gap:6px;
+        font-size:11px; color:var(--text-muted); padding:6px 14px;
+        background:var(--bg); border-bottom:1px solid var(--border);
+    }
+}
 
 .badge {
     display:inline-flex; align-items:center; gap:4px;
@@ -744,6 +758,25 @@ textarea { resize:vertical; min-height:70px; }
     .form-grid-3 { grid-template-columns:1fr; }
     .section-toolbar { flex-direction:column; align-items:stretch; }
     .search-box { min-width:unset; }
+
+    /* ===== FIX‌های اضافه شده برای ریسپانسیو بهتر موبایل ===== */
+
+    /* جلوگیری از زوم خودکار Safari/iOS روی فیلدهای ورودی (که با فونت زیر ۱۶px رخ می‌دهد) */
+    input, select, textarea { font-size:16px; }
+
+    /* جمع‌وجورتر کردن نوار بالا در موبایل تا چیپ تاریخ/ساعت جا شود */
+    .topbar { padding:0 12px; gap:8px; }
+    .page-heading { font-size:15px; }
+    .date-chip { display:none; } /* روی موبایل فقط ساعت نمایش داده می‌شود تا فضا کم مصرف شود */
+
+    /* دکمه‌های نوار ابزار (ورود/خروج اکسل، پرینت) در صورت کمبود فضا زیر هم بروند */
+    .toolbar-buttons { flex-wrap:wrap; }
+
+    /* جزئیات پرسنل/ماموریت در موبایل تک‌ستونی نمایش داده شود */
+    .detail-grid { grid-template-columns:1fr; }
+
+    /* تقویم شمسی از عرض صفحه در موبایل خارج نشود */
+    #dp-popup { width:calc(100vw - 24px); max-width:300px; }
 }
 @media (max-width: 480px) {
     .login-wrapper { flex-direction:column; }
@@ -751,6 +784,9 @@ textarea { resize:vertical; min-height:70px; }
     .login-card { padding:28px 20px; }
     .login-features { display:none; }
     .feature-cards { grid-template-columns:1fr; }
+
+    /* در صفحات خیلی کوچک، کارت‌های آمار داشبورد تک‌ستونی شوند */
+    .stats-grid { grid-template-columns:1fr; }
 }
 @media (max-width: 900px) {
     .login-features { display:none; }
