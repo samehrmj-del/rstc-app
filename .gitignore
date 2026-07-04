@@ -5,6 +5,7 @@ node_modules/
 *.db-wal
 *.db.bak
 *.bak
+~$*
 backups/
 dump_*/
 _backup_*/
