@@ -184,13 +184,24 @@ async function initializeDatabase() {
         )`);
         await dbRun("CREATE INDEX IF NOT EXISTS idx_decree_num ON Missions(decree_num)");
 
-        const existingAdmin = await dbGet("SELECT id FROM Users WHERE username = 'admin' AND role = 'admin'");
-        if (!existingAdmin) {
-            const adminPass = process.env.INIT_ADMIN_PASSWORD || 'admin1234';
-            const hashed = await hashPassword(adminPass);
-            await dbRun(`INSERT INTO Users (username, password, role, status, created_at) VALUES (?, ?, ?, ?, ?)`,
-                ['admin', hashed, 'admin', 'active', new Date().toISOString()]);
-            console.log(`✅ Admin user created (password: ${process.env.INIT_ADMIN_PASSWORD ? 'from INIT_ADMIN_PASSWORD' : 'default: admin1234'})`);
+        if (process.env.INIT_ADMIN_PASSWORD) {
+            const hashed = await hashPassword(process.env.INIT_ADMIN_PASSWORD);
+            const existingAdmin = await dbGet("SELECT id FROM Users WHERE username = 'admin'");
+            if (existingAdmin) {
+                await dbRun("UPDATE Users SET password = ?, role = 'admin', status = 'active' WHERE username = 'admin'", [hashed]);
+            } else {
+                await dbRun(`INSERT INTO Users (username, password, role, status, created_at) VALUES (?, ?, ?, ?, ?)`,
+                    ['admin', hashed, 'admin', 'active', new Date().toISOString()]);
+            }
+            console.log('✅ Admin user ready (password from INIT_ADMIN_PASSWORD)');
+        } else {
+            const existingAdmin = await dbGet("SELECT id FROM Users WHERE username = 'admin'");
+            if (!existingAdmin) {
+                const hashed = await hashPassword('admin1234');
+                await dbRun(`INSERT INTO Users (username, password, role, status, created_at) VALUES (?, ?, ?, ?, ?)`,
+                    ['admin', hashed, 'admin', 'active', new Date().toISOString()]);
+                console.log('✅ Admin user created with default password: admin1234');
+            }
         }
 
         await dbRun(`CREATE TABLE IF NOT EXISTS AuditLog (
