@@ -1341,34 +1341,34 @@ async function loadAuditLog() {
 function _missionDecreeBodyHTML(m, days, chk, logoDataUrl) {
     return `<style>
 *{margin:0;padding:0;box-sizing:border-box;}
-.hokm-wrap{font-family:'Vazirmatn',Tahoma,sans-serif;font-size:9pt;direction:rtl;color:#000;width:186mm;background:#fff;padding:0;}
+.hokm-wrap{font-family:'Vazirmatn',Tahoma,sans-serif;font-size:10pt;direction:rtl;color:#000;width:190mm;height:277mm;background:#fff;padding:0;display:flex;flex-direction:column;}
 .hokm-wrap table{width:100%;border-collapse:collapse;table-layout:fixed;}
-.hokm-wrap td,.hokm-wrap th{border:1px solid #000;padding:2px 4px;vertical-align:middle;font-size:8.5pt;word-wrap:break-word;overflow-wrap:break-word;}
+.hokm-wrap td,.hokm-wrap th{border:1px solid #000;padding:4px 6px;vertical-align:middle;font-size:9.5pt;word-wrap:break-word;overflow-wrap:break-word;}
 .hokm-wrap .lc{font-weight:bold;white-space:nowrap;}
-.hokm-wrap .sh{font-weight:bold;font-size:8.5pt;padding:2px 5px;background:#f0f0f0;}
-.hokm-wrap .sd{padding:3px 5px;font-size:8pt;line-height:1.5;}
-.hokm-wrap .ck{display:inline-flex;align-items:center;gap:2px;font-size:8.5pt;margin-left:8px;}
-.hokm-wrap .sgr{display:grid;grid-template-columns:1fr 1fr;gap:3px;}
-.hokm-wrap .sbox{border:1px solid #000;padding:3px 5px;min-height:40px;}
-.hokm-wrap .stit{font-size:8pt;font-weight:bold;border-bottom:1px solid #888;margin-bottom:2px;padding-bottom:1px;}
-.hokm-wrap .sln{border-top:1px dashed #aaa;margin-top:14px;font-size:7pt;color:#555;text-align:center;}
-.hokm-wrap .sec{border:1px solid #000;margin:2px 0;}
-.hokm-wrap .ft{display:flex;justify-content:space-between;font-size:8pt;border-top:2px solid #000;padding-top:3px;margin-top:3px;}
+.hokm-wrap .sh{font-weight:bold;font-size:9.5pt;padding:4px 6px;background:#f0f0f0;}
+.hokm-wrap .sd{padding:5px 8px;font-size:9pt;line-height:1.6;}
+.hokm-wrap .ck{display:inline-flex;align-items:center;gap:3px;font-size:9.5pt;margin-left:10px;}
+.hokm-wrap .sgr{display:grid;grid-template-columns:1fr 1fr;gap:4px;}
+.hokm-wrap .sbox{border:1px solid #000;padding:6px 10px;min-height:60px;}
+.hokm-wrap .stit{font-size:9pt;font-weight:bold;border-bottom:1px solid #888;margin-bottom:4px;padding-bottom:2px;}
+.hokm-wrap .sln{border-top:1px dashed #aaa;margin-top:20px;font-size:8pt;color:#555;text-align:center;}
+.hokm-wrap .sec{border:1px solid #000;margin:3px 0;}
+.hokm-wrap .ft{display:flex;justify-content:space-between;font-size:9pt;border-top:2px solid #000;padding-top:4px;margin-top:auto;}
 </style>
 <div class="hokm-wrap">
 
-<table style="margin-bottom:2px;border:none;">
+<table style="margin-bottom:3px;border:none;">
 <tr style="border:none;">
-  <td style="border:none;width:60px;padding:0;">
-    ${logoDataUrl ? `<img src="${logoDataUrl}" style="height:45px;max-width:60px;object-fit:contain;" onerror="this.style.display='none'">` : '<div style="width:60px;height:45px;border:1px solid #ccc;display:flex;align-items:center;justify-content:center;font-size:7pt;color:#999;">RSTC</div>'}
+  <td style="border:none;width:70px;padding:0;">
+    ${logoDataUrl ? `<img src="${logoDataUrl}" style="height:55px;max-width:70px;object-fit:contain;" onerror="this.style.display='none'">` : '<div style="width:70px;height:55px;border:1px solid #ccc;display:flex;align-items:center;justify-content:center;font-size:8pt;color:#999;">RSTC</div>'}
   </td>
   <td style="border:none;text-align:center;vertical-align:middle;">
-    <div style="font-size:16pt;font-weight:bold;">حکم ماموریت اداری</div>
+    <div style="font-size:18pt;font-weight:bold;">حکم ماموریت اداری</div>
   </td>
-  <td style="border:1px solid #000;width:110px;padding:3px 6px;font-size:8pt;text-align:right;vertical-align:top;">
+  <td style="border:1px solid #000;width:120px;padding:5px 8px;font-size:9pt;text-align:right;vertical-align:top;">
     <div>شماره: <strong>${_esc(m.decree_num) || '........'}</strong></div>
-    <div style="margin-top:2px;">تاریخ: <strong>${_esc(m.issue_date) || '........'}</strong></div>
-    <div style="margin-top:2px;">نسخه: مالی</div>
+    <div style="margin-top:3px;">تاریخ: <strong>${_esc(m.issue_date) || '........'}</strong></div>
+    <div style="margin-top:3px;">نسخه: مالی</div>
   </td>
 </tr>
 </table>
@@ -1382,7 +1382,7 @@ function _missionDecreeBodyHTML(m, days, chk, logoDataUrl) {
 </tr>
 <tr>
   <td class="lc">۳- عنوان مأموریت:</td>
-  <td colspan="3" style="padding:3px 6px;">
+  <td colspan="3" style="padding:4px 8px;">
     <span class="ck">${chk(m.is_single)} انفرادی</span>
     <span class="ck">${chk(m.is_group)} گروهی</span>
     <span class="ck">${chk(m.is_supplied)} تامین شده</span>
@@ -1392,7 +1392,7 @@ function _missionDecreeBodyHTML(m, days, chk, logoDataUrl) {
 </tr>
 <tr>
   <td class="lc">۴- توضیحات:</td>
-  <td colspan="3" style="min-height:16px;">${_esc(m.subject) || ''}</td>
+  <td colspan="3" style="min-height:22px;">${_esc(m.subject) || ''}</td>
 </tr>
 <tr>
   <td class="lc">۵- واحد درخواست کننده:</td>
@@ -1408,7 +1408,7 @@ function _missionDecreeBodyHTML(m, days, chk, logoDataUrl) {
 
 <div class="sec">
   <div class="sh">۸- موضوع مأموریت:</div>
-  <div class="sd" style="min-height:20px;">
+  <div class="sd" style="min-height:30px;">
     ${m.device_type ? '<strong>نوع دستگاه:</strong> ' + _esc(m.device_type) + '&nbsp;&nbsp;' : ''}
     ${m.device_serial ? '<strong>سریال:</strong> ' + _esc(m.device_serial) + '&nbsp;&nbsp;' : ''}
     ${m.repair_type ? '<strong>نوع تعمیر:</strong> ' + _esc(m.repair_type) : ''}
@@ -1420,7 +1420,7 @@ function _missionDecreeBodyHTML(m, days, chk, logoDataUrl) {
 <table>
 <tr>
   <td class="lc" style="width:24%;">۹- نحوه عزیمت:</td>
-  <td colspan="3" style="padding:3px 8px;">
+  <td colspan="3" style="padding:5px 10px;">
     <span class="ck">${chk(m.is_plane)} هواپیما</span>
     <span class="ck">${chk(m.is_train)} قطار</span>
     <span class="ck">${chk(m.is_bus)} اتوبوس</span>
@@ -1431,63 +1431,63 @@ function _missionDecreeBodyHTML(m, days, chk, logoDataUrl) {
 </tr>
 </table>
 
-<div class="sec" style="padding:3px 8px;font-size:8.5pt;line-height:1.5;margin:2px 0;">
+<div class="sec" style="padding:5px 10px;font-size:9.5pt;line-height:1.6;margin:3px 0;">
   ۱۰- بدینوسیله به شما مأموریت داده می‌شود به منظور انجام وظیفه به شرح بند ۸ حکم صادره در زمان تعیین شده اقدام و پس از انجام مأموریت موارد را گزارش نمایید.
 </div>
 
-<div class="sgr" style="margin:2px 0;">
+<div class="sgr" style="margin:3px 0;">
   <div class="sbox">
     <div class="stit">نام و نام‌خانوادگی مدیر واحد مربوطه</div>
-    <div style="font-size:8.5pt;">غلامرضا فضلی</div>
+    <div style="font-size:9.5pt;">غلامرضا فضلی</div>
     <div class="sln">امضاء</div>
   </div>
   <div class="sbox">
     <div class="stit">نام و نام‌خانوادگی مدیر عامل</div>
-    <div style="font-size:8.5pt;">مصطفی معینی</div>
+    <div style="font-size:9.5pt;">مصطفی معینی</div>
     <div class="sln">امضاء</div>
   </div>
 </div>
 
-<div class="sec" style="margin:2px 0;">
+<div class="sec" style="margin:3px 0;">
   <div class="sh">۱۱- گزارش مأموریت:</div>
-  <div class="sd" style="min-height:32px;"></div>
+  <div class="sd" style="min-height:45px;"></div>
 </div>
 
-<div class="sec" style="margin:2px 0;">
+<div class="sec" style="margin:3px 0;">
   <div class="sh">۱۲- گزارش هزینه انجام شده در مأموریت:</div>
-  <div class="sd" style="font-size:7.5pt;line-height:1.6;min-height:40px;">
+  <div class="sd" style="font-size:8.5pt;line-height:1.7;min-height:55px;">
     اینجانب در اجرای این حکم ساعت ......... مورخ ........... به محل مأموریت حرکت و در ساعت ......... مورخ ........... پس از اتمام مأموریت مراجعت نموده که در این ایام تعداد ......... وعده صبحانه و ......... وعده ناهار و ......... وعده شام جمعاً به مبلغ ......... ریال بر اساس ......... برگ فاکتور پیوستی مبلغ ......... ریال هزینه هتل و ......... ریال هزینه ایاب و ذهاب طبق بلیط پیوست جمعاً معادل مبلغ ......... ریال هزینه انجام یافته است.
-    <div style="margin-top:5px;display:flex;justify-content:space-between;">
+    <div style="margin-top:8px;display:flex;justify-content:space-between;">
       <span>نام و نام‌خانوادگی: ${_esc(m.name) || ''} ${_esc(m.lname) || ''}</span>
       <span>امضاء: ........................</span>
     </div>
   </div>
 </div>
 
-<div class="sec" style="margin:2px 0;">
+<div class="sec" style="margin:3px 0;">
   <div class="sh">۱۳- تأیید محل انجام مأموریت:</div>
-  <div class="sd" style="font-size:8pt;min-height:35px;">
+  <div class="sd" style="font-size:9pt;min-height:45px;">
     <div>۱- نامبرده در تاریخ ........... ساعت ........... وارد کارگاه/منطقه/کارخانجات/ ........... گردید.</div>
-    <div style="margin-top:3px;">۲- نامبرده در تاریخ ........... ساعت ........... از کارگاه/منطقه/کارخانجات/ ........... خارج گردید.</div>
-    <div style="margin-top:6px;">مدیر منطقه/کارخانجات/سرپرست کارگاه: ........................</div>
+    <div style="margin-top:4px;">۲- نامبرده در تاریخ ........... ساعت ........... از کارگاه/منطقه/کارخانجات/ ........... خارج گردید.</div>
+    <div style="margin-top:10px;">مدیر منطقه/کارخانجات/سرپرست کارگاه: ........................</div>
   </div>
 </div>
 
-<div class="sgr" style="margin:2px 0;">
+<div class="sgr" style="margin:3px 0;">
   <div style="border:1px solid #000;">
     <div class="sh">۱۴- مدیریت امور مالی:</div>
-    <div class="sd" style="font-size:8pt;min-height:35px;">
+    <div class="sd" style="font-size:9pt;min-height:45px;">
       لطفاً نسبت به پرداخت اقدام نمایید.
-      <div style="margin-top:3px;">نام و نام‌خانوادگی: ........................</div>
+      <div style="margin-top:4px;">نام و نام‌خانوادگی: ........................</div>
       <div>معاون مالی و پشتیبانی</div>
       <div class="sln">امضاء</div>
     </div>
   </div>
   <div style="border:1px solid #000;">
     <div class="sh">۱۵- اداره دریافت و پرداخت:</div>
-    <div class="sd" style="font-size:8pt;min-height:35px;">
+    <div class="sd" style="font-size:9pt;min-height:45px;">
       جهت بررسی و اقدام لازم
-      <div style="margin-top:3px;">نام و نام‌خانوادگی: شهرام حسن سلطانی</div>
+      <div style="margin-top:4px;">نام و نام‌خانوادگی: شهرام حسن سلطانی</div>
       <div>مدیر امور مالی</div>
       <div class="sln">امضاء</div>
     </div>
@@ -1519,9 +1519,9 @@ function _missionDecreeHTML(m, days, chk, logoDataUrl, opts) {
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css">
 <style>
-@page { size: A4; margin: 5mm 10mm; }
+@page { size: A4; margin: 8mm 10mm; }
 body { margin: 0; padding: 0; background: #fff; }
-@media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+@media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } .hokm-wrap { width:100% !important; height:auto !important; } }
 </style>
 </head><body>
 ${_missionDecreeBodyHTML(m, days, chk, logoDataUrl)}

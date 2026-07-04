@@ -384,7 +384,10 @@ function validatePersonnel(body) {
     const errors = [];
     if (!body.name || !body.name.trim()) errors.push('نام الزامی است.');
     if (!body.lname || !body.lname.trim()) errors.push('نام خانوادگی الزامی است.');
-    if (body.national_id && !/^\d{10}$/.test(body.national_id.trim())) errors.push('کد ملی باید ۱۰ رقم باشد.');
+    if (body.national_id != null && body.national_id !== '') {
+        const nid = String(body.national_id).trim();
+        if (!/^\d{10}$/.test(nid)) errors.push('کد ملی باید ۱۰ رقم باشد.');
+    }
     if (body.phone && !/^[0-9+\-\s]{7,15}$/.test(body.phone.trim())) errors.push('شماره تماس نامعتبر است.');
     return errors;
 }
@@ -395,8 +398,9 @@ app.post('/api/personnel', authenticateToken, auditMiddleware('Personnel'), asyn
         const errs = validatePersonnel(req.body);
         if (errs.length) return res.status(400).json({ error: errs.join(' | ') });
         const { name, lname, father_name, national_id, emp_num, hire_date, emp_type, org_post, job_title, last_degree, phone, address, status, notes } = req.body;
+        const nid = national_id != null && national_id !== '' ? String(national_id).trim() : null;
         await dbRun(`INSERT INTO Personnel (name,lname,father_name,national_id,emp_num,hire_date,emp_type,org_post,job_title,last_degree,phone,address,status,notes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-            [name.trim(), lname.trim(), father_name, national_id||null, emp_num||null, hire_date, emp_type, org_post, job_title, last_degree, phone, address, status||'فعال', notes]);
+            [name.trim(), lname.trim(), father_name, nid, emp_num||null, hire_date, emp_type, org_post, job_title, last_degree, phone, address, status||'فعال', notes]);
         res.json({ success: true });
     } catch (e) {
         if (e.message.includes('UNIQUE')) return res.status(400).json({ error: "کد ملی یا شماره پرسنلی قبلاً ثبت شده است!" });
@@ -412,8 +416,9 @@ app.put('/api/personnel/:id', authenticateToken, auditMiddleware('Personnel'), a
         const errs = validatePersonnel(req.body);
         if (errs.length) return res.status(400).json({ error: errs.join(' | ') });
         const { name, lname, father_name, national_id, emp_num, hire_date, emp_type, org_post, job_title, last_degree, phone, address, status, notes } = req.body;
+        const nid = national_id != null && national_id !== '' ? String(national_id).trim() : null;
         await dbRun(`UPDATE Personnel SET name=?,lname=?,father_name=?,national_id=?,emp_num=?,hire_date=?,emp_type=?,org_post=?,job_title=?,last_degree=?,phone=?,address=?,status=?,notes=? WHERE id=?`,
-            [name.trim(), lname.trim(), father_name, national_id||null, emp_num||null, hire_date, emp_type, org_post, job_title, last_degree, phone, address, status, notes, req.params.id]);
+            [name.trim(), lname.trim(), father_name, nid, emp_num||null, hire_date, emp_type, org_post, job_title, last_degree, phone, address, status, notes, req.params.id]);
         res.json({ success: true });
     } catch (e) {
         if (e.message.includes('UNIQUE')) return res.status(400).json({ error: "کد ملی یا شماره پرسنلی تکراری است!" });
