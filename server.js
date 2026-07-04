@@ -379,8 +379,29 @@ app.delete('/api/users/:id', authenticateToken, requireAdmin, auditMiddleware('U
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ===== تبدیل ارقام فارسی/عربی به انگلیسی =====
+// مشکل رایج: وقتی کاربر با کیبورد فارسی عدد تایپ می‌کند (۰۱۲۳...) یا حالت عربی (٠١٢٣...)
+// این ارقام از نظر ظاهری شبیه انگلیسی‌اند ولی regex \d فقط ASCII را تشخیص می‌دهد
+function normalizeDigits(str) {
+    if (str === null || str === undefined) return str;
+    const persian = '۰۱۲۳۴۵۶۷۸۹';
+    const arabic = '٠١٢٣٤٥٦٧٨٩';
+    return String(str).replace(/[۰-۹٠-٩]/g, ch => {
+        const pIdx = persian.indexOf(ch);
+        if (pIdx > -1) return String(pIdx);
+        const aIdx = arabic.indexOf(ch);
+        if (aIdx > -1) return String(aIdx);
+        return ch;
+    });
+}
+
 // ===== PERSONNEL VALIDATION =====
 function validatePersonnel(body) {
+    // نرمال‌سازی فیلدهای عددی قبل از اعتبارسنجی و ذخیره
+    if (body.national_id) body.national_id = normalizeDigits(body.national_id).trim();
+    if (body.emp_num) body.emp_num = normalizeDigits(body.emp_num).trim();
+    if (body.phone) body.phone = normalizeDigits(body.phone).trim();
+
     const errors = [];
     if (!body.name || !body.name.trim()) errors.push('نام الزامی است.');
     if (!body.lname || !body.lname.trim()) errors.push('نام خانوادگی الزامی است.');
@@ -451,8 +472,8 @@ app.post('/api/personnel/bulk', authenticateToken, async (req, res) => {
                 name: (row['نام']||row['name']||'').toString().trim(),
                 lname: (row['نام خانوادگی']||row['lname']||'').toString().trim(),
                 father_name: (row['نام پدر']||row['father_name']||'').toString().trim(),
-                national_id: (row['کد ملی']||row['national_id']||'').toString().trim()||null,
-                emp_num: (row['شماره پرسنلی']||row['emp_num']||'').toString().trim()||null,
+                national_id: normalizeDigits((row['کد ملی']||row['national_id']||'').toString().trim())||null,
+                emp_num: normalizeDigits((row['شماره پرسنلی']||row['emp_num']||'').toString().trim())||null,
                 hire_date: (row['تاریخ استخدام']||row['hire_date']||'').toString().trim(),
                 emp_type: (row['نوع استخدام']||row['emp_type']||'').toString().trim(),
                 org_post: (row['پست سازمانی']||row['org_post']||'').toString().trim(),

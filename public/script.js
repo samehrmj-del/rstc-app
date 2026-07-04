@@ -4,6 +4,32 @@
 
 'use strict';
 
+// ===== تبدیل ارقام فارسی/عربی به انگلیسی (هنگام تایپ با کیبورد فارسی) =====
+function normalizeDigits(str) {
+    if (str === null || str === undefined) return str;
+    const persian = '۰۱۲۳۴۵۶۷۸۹';
+    const arabic = '٠١٢٣٤٥٦٧٨٩';
+    return String(str).replace(/[۰-۹٠-٩]/g, ch => {
+        const pIdx = persian.indexOf(ch);
+        if (pIdx > -1) return String(pIdx);
+        const aIdx = arabic.indexOf(ch);
+        if (aIdx > -1) return String(aIdx);
+        return ch;
+    });
+}
+function attachDigitNormalizer(id) {
+    const elm = document.getElementById(id);
+    if (!elm) return;
+    elm.addEventListener('input', function () {
+        const pos = this.selectionStart;
+        const normalized = normalizeDigits(this.value);
+        if (normalized !== this.value) {
+            this.value = normalized;
+            if (pos !== null) this.setSelectionRange(pos, pos);
+        }
+    });
+}
+
 // ===== STATE =====
 let currentUserRole = 'user';
 let currentUsername = '';
@@ -1341,7 +1367,7 @@ async function loadAuditLog() {
 function _missionDecreeBodyHTML(m, days, chk, logoDataUrl) {
     return `<style>
 *{margin:0;padding:0;box-sizing:border-box;}
-.hokm-wrap{font-family:'Vazirmatn',Tahoma,sans-serif;font-size:10pt;direction:rtl;color:#000;width:190mm;height:277mm;background:#fff;padding:0;display:flex;flex-direction:column;}
+.hokm-wrap{font-family:'Vazirmatn',Tahoma,sans-serif;font-size:10pt;direction:rtl;color:#000;width:190mm;height:281mm;background:#fff;padding:0;display:flex;flex-direction:column;}
 .hokm-wrap table{width:100%;border-collapse:collapse;table-layout:fixed;}
 .hokm-wrap td,.hokm-wrap th{border:1px solid #000;padding:4px 6px;vertical-align:middle;font-size:9.5pt;word-wrap:break-word;overflow-wrap:break-word;}
 .hokm-wrap .lc{font-weight:bold;white-space:nowrap;}
@@ -1521,10 +1547,18 @@ function _missionDecreeHTML(m, days, chk, logoDataUrl, opts) {
 <style>
 @page { size: A4; margin: 8mm 10mm; }
 body { margin: 0; padding: 0; background: #fff; }
-@media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } .hokm-wrap { width:100% !important; height:auto !important; } }
+@media print {
+  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  /* ✅ FIX: قبلاً height:auto این باکس ست می‌شد و باعث می‌شد محتوا کل صفحه A4 را پر نکند
+     و فضای خالی در پایین صفحه چاپ باقی بماند. حالا ارتفاع دقیقاً برابر فضای قابل چاپ
+     (297mm صفحه منهای 2×8mm مارجین بالا/پایین در @page) نگه داشته می‌شود تا فوتر به ته صفحه بچسبد. */
+  .hokm-wrap { width:190mm !important; height:281mm !important; }
+}
 </style>
 </head><body>
+<div style="width:190mm;margin:0 auto;">
 ${_missionDecreeBodyHTML(m, days, chk, logoDataUrl)}
+</div>
 ${printScript}</body></html>`;
 }
 
@@ -2114,6 +2148,8 @@ function _onPageShow(target) {
 window.addEventListener('DOMContentLoaded', () => {
     updateClock();
     setInterval(updateClock, 1000);
+    // نرمال‌سازی خودکار ارقام فارسی/عربی در فیلدهای عددی هنگام تایپ
+    ['p_national_id', 'p_emp_num', 'p_phone', 'm_emp_num'].forEach(attachDigitNormalizer);
     const savedToken = getToken();
     if (savedToken) {
         try {
