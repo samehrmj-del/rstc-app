@@ -13,3 +13,4 @@ _secure_fix_backup_*/
 apply_patch.js
 patch_script.js
 options.json
+options.json.migrated

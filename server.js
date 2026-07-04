@@ -203,6 +203,27 @@ async function initializeDatabase() {
         )`);
         await dbRun("CREATE INDEX IF NOT EXISTS idx_audit_created ON AuditLog(created_at)");
 
+        await dbRun(`CREATE TABLE IF NOT EXISTS SystemOptions (
+            field TEXT PRIMARY KEY,
+            label TEXT NOT NULL,
+            options TEXT NOT NULL DEFAULT '[]'
+        )`);
+
+        const optionsPath = path.join(__dirname, 'options.json');
+        if (fs.existsSync(optionsPath)) {
+            try {
+                const data = JSON.parse(fs.readFileSync(optionsPath, 'utf8'));
+                for (const [field, info] of Object.entries(data)) {
+                    await dbRun(
+                        "INSERT OR IGNORE INTO SystemOptions (field, label, options) VALUES (?, ?, ?)",
+                        [field, info.label || field, JSON.stringify(info.options || [])]
+                    );
+                }
+                fs.renameSync(optionsPath, optionsPath + '.migrated');
+                console.log('✅ Options migrated from options.json to database');
+            } catch (e) { console.error('Options migration error:', e.message); }
+        }
+
         console.log('🛠️  Database ready');
     } catch (err) {
         console.error('DB init error:', err);
@@ -572,70 +593,83 @@ app.post('/api/restore', authenticateToken, express.raw({ type: 'application/oct
     }
 });
 
-// ===== OPTIONS (Dropdown Management) =====
-const OPTIONS_FILE = path.join(__dirname, 'options.json');
-
-function readOptions() {
-    try { return JSON.parse(fs.readFileSync(OPTIONS_FILE, 'utf8')); }
-    catch { return {}; }
+// ===== OPTIONS (Dropdown Management — stored in database) =====
+async function readOptions() {
+    const rows = await dbAll("SELECT field, label, options FROM SystemOptions");
+    const result = {};
+    for (const row of rows) {
+        result[row.field] = { label: row.label, options: JSON.parse(row.options) };
+    }
+    return result;
 }
-function writeOptions(data) {
-    fs.writeFileSync(OPTIONS_FILE, JSON.stringify(data, null, 2), 'utf8');
+async function writeOptionsField(field, label, optionsArray) {
+    await dbRun(
+        "INSERT OR REPLACE INTO SystemOptions (field, label, options) VALUES (?, ?, ?)",
+        [field, label, JSON.stringify(optionsArray)]
+    );
 }
 
-app.get('/api/options', authenticateToken, (req, res) => {
-    try { res.json(readOptions()); }
+app.get('/api/options', authenticateToken, async (req, res) => {
+    try { res.json(await readOptions()); }
     catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/api/options/:field', authenticateToken, (req, res) => {
-    const all = readOptions();
-    const field = all[req.params.field];
-    if (!field) return res.status(404).json({ error: 'فیلد یافت نشد' });
-    res.json(field);
+app.get('/api/options/:field', authenticateToken, async (req, res) => {
+    try {
+        const all = await readOptions();
+        const field = all[req.params.field];
+        if (!field) return res.status(404).json({ error: 'فیلد یافت نشد' });
+        res.json(field);
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post('/api/options/:field', authenticateToken, auditMiddleware('Option'), (req, res) => {
+app.post('/api/options/:field', authenticateToken, auditMiddleware('Option'), async (req, res) => {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'دسترسی غیرمجاز' });
-    const { field } = req.params;
-    const { label, value } = req.body;
-    if (!value || !value.trim()) return res.status(400).json({ error: 'مقدار گزینه الزامی است' });
-    const all = readOptions();
-    if (!all[field]) all[field] = { label: label || field, options: [] };
-    if (all[field].options.includes(value.trim())) return res.status(400).json({ error: 'این گزینه قبلاً وجود دارد' });
-    all[field].options.push(value.trim());
-    writeOptions(all);
-    res.json({ success: true, options: all[field].options });
+    try {
+        const { field } = req.params;
+        const { label, value } = req.body;
+        if (!value || !value.trim()) return res.status(400).json({ error: 'مقدار گزینه الزامی است' });
+        const all = await readOptions();
+        if (!all[field]) all[field] = { label: label || field, options: [] };
+        if (all[field].options.includes(value.trim())) return res.status(400).json({ error: 'این گزینه قبلاً وجود دارد' });
+        all[field].options.push(value.trim());
+        await writeOptionsField(field, all[field].label, all[field].options);
+        res.json({ success: true, options: all[field].options });
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.put('/api/options/:field', authenticateToken, auditMiddleware('Option'), (req, res) => {
+app.put('/api/options/:field', authenticateToken, auditMiddleware('Option'), async (req, res) => {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'دسترسی غیرمجاز' });
-    const { field } = req.params;
-    const { oldValue, newValue, label } = req.body;
-    if (!newValue || !newValue.trim()) return res.status(400).json({ error: 'مقدار جدید الزامی است' });
-    const all = readOptions();
-    if (!all[field]) return res.status(404).json({ error: 'فیلد یافت نشد' });
-    const idx = all[field].options.indexOf(oldValue);
-    if (idx === -1) return res.status(404).json({ error: 'گزینه یافت نشد' });
-    if (oldValue !== newValue.trim() && all[field].options.includes(newValue.trim())) {
-        return res.status(400).json({ error: 'این نام قبلاً استفاده شده' });
-    }
-    all[field].options[idx] = newValue.trim();
-    if (label) all[field].label = label;
-    writeOptions(all);
-    res.json({ success: true, options: all[field].options });
+    try {
+        const { field } = req.params;
+        const { oldValue, newValue, label } = req.body;
+        if (!newValue || !newValue.trim()) return res.status(400).json({ error: 'مقدار جدید الزامی است' });
+        const all = await readOptions();
+        if (!all[field]) return res.status(404).json({ error: 'فیلد یافت نشد' });
+        const idx = all[field].options.indexOf(oldValue);
+        if (idx === -1) return res.status(404).json({ error: 'گزینه یافت نشد' });
+        if (oldValue !== newValue.trim() && all[field].options.includes(newValue.trim())) {
+            return res.status(400).json({ error: 'این نام قبلاً استفاده شده' });
+        }
+        all[field].options[idx] = newValue.trim();
+        if (label) all[field].label = label;
+        await writeOptionsField(field, all[field].label, all[field].options);
+        res.json({ success: true, options: all[field].options });
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.delete('/api/options/:field/:index', authenticateToken, auditMiddleware('Option'), (req, res) => {
+app.delete('/api/options/:field/:index', authenticateToken, auditMiddleware('Option'), async (req, res) => {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'دسترسی غیرمجاز' });
-    const { field, index } = req.params;
-    const all = readOptions();
-    if (!all[field]) return res.status(404).json({ error: 'فیلد یافت نشد' });
-    const idx = parseInt(index);
-    if (isNaN(idx) || idx < 0 || idx >= all[field].options.length) return res.status(400).json({ error: 'ایندکس نامعتبر' });
-    all[field].options.splice(idx, 1);
-    writeOptions(all);
-    res.json({ success: true, options: all[field].options });
+    try {
+        const { field, index } = req.params;
+        const all = await readOptions();
+        if (!all[field]) return res.status(404).json({ error: 'فیلد یافت نشد' });
+        const idx = parseInt(index);
+        if (isNaN(idx) || idx < 0 || idx >= all[field].options.length) return res.status(400).json({ error: 'ایندکس نامعتبر' });
+        all[field].options.splice(idx, 1);
+        await writeOptionsField(field, all[field].label, all[field].options);
+        res.json({ success: true, options: all[field].options });
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ===== AUDIT LOG API =====
