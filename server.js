@@ -62,7 +62,7 @@ setInterval(() => { const now = Date.now(); for (const [ip, r] of loginAttempts.
 // در محیط لوکال از فایل کنار پروژه استفاده می‌شود.
 // در Railway با متغیر DB_PATH به مسیر Volume دائمی اشاره می‌کنیم تا دیتا با هر ری‌استارت پاک نشود.
 const DB_PATH = process.env.DB_PATH || './rstc_database.db';
-const db = new Database(DB_PATH);
+let db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
 console.log('✅ DB Connected:', DB_PATH);
 
@@ -537,6 +537,9 @@ app.get('/api/backup', authenticateToken, (req, res) => {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'دسترسی غیرمجاز' });
     const dbPath = path.resolve(DB_PATH);
     if (!fs.existsSync(dbPath)) return res.status(404).json({ error: 'فایل دیتابیس یافت نشد' });
+    // ✅ FIX: قبل از خواندن فایل، تمام تراکنش‌های WAL را به فایل اصلی .db منتقل می‌کنیم
+    // در غیر این صورت آخرین تغییرات ثبت‌شده ممکن است در بکاپ نباشند
+    try { db.pragma('wal_checkpoint(TRUNCATE)'); } catch (e) { console.error('Checkpoint warning:', e.message); }
     res.setHeader('Content-Disposition', `attachment; filename=RSTC_Backup_${new Date().toISOString().slice(0,10)}.db`);
     res.setHeader('Content-Type', 'application/octet-stream');
     fs.createReadStream(dbPath).pipe(res);
@@ -547,9 +550,23 @@ app.post('/api/restore', authenticateToken, express.raw({ type: 'application/oct
     try {
         const dbPath = path.resolve(DB_PATH);
         const backupPath = dbPath + '.bak';
+
+        // ✅ FIX: قبل از جایگزینی فایل، کانکشن زنده فعلی را می‌بندیم
+        // در غیر این صورت better-sqlite3 (به‌خصوص در حالت WAL) همچنان به نسخه قدیمی
+        // اشاره می‌کند و داده‌های بازیابی‌شده هرگز در پاسخ‌های API دیده نمی‌شوند
+        try { db.close(); } catch (e) { console.error('DB close warning:', e.message); }
+
         if (fs.existsSync(dbPath)) fs.copyFileSync(dbPath, backupPath);
         fs.writeFileSync(dbPath, req.body);
-        res.json({ success: true, message: 'بازیابی با موفقیت انجام شد. سرور را ری‌استارت کنید.' });
+
+        // پاک کردن فایل‌های جانبی WAL/SHM قدیمی که ممکن است با فایل جدید ناسازگار باشند
+        [`${dbPath}-wal`, `${dbPath}-shm`].forEach(f => { if (fs.existsSync(f)) fs.unlinkSync(f); });
+
+        // باز کردن مجدد کانکشن روی فایل تازه بازیابی‌شده
+        db = new Database(dbPath);
+        db.pragma('journal_mode = WAL');
+
+        res.json({ success: true, message: 'بازیابی با موفقیت انجام شد و اطلاعات جدید فعال شدند.' });
     } catch (e) {
         res.status(500).json({ error: 'خطا در بازیابی: ' + e.message });
     }
