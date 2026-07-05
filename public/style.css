@@ -77,10 +77,15 @@ input, select, textarea { font-family: var(--font); font-size: 14px; }
     position:relative; display:flex; align-items:center;
 }
 .input-icon {
-    position:absolute; right:12px; font-size:14px; opacity:0.5; z-index:1;
+    /* ✅ FIX: قبلاً وسط‌چین عمودی فقط به align-items والد (که برای المان‌های
+       absolute به‌طور قابل‌اعتماد در همه مرورگرها کار نمی‌کند) متکی بود؛
+       حالا مثل eye-btn به‌صورت صریح با top/transform وسط‌چین می‌شود. */
+    position:absolute; right:14px; top:50%; transform:translateY(-50%);
+    font-size:15px; line-height:1; opacity:0.5; z-index:1;
+    pointer-events:none; /* هرگز جلوی کلیک/تایپ روی اینپوت را نگیرد */
 }
 .input-icon-wrap input {
-    width:100%; padding:12px 40px 12px 40px;
+    width:100%; padding:12px 44px 12px 40px;
     border:1.5px solid var(--border); border-radius:10px;
     font-size:14px; transition:.2s; background:var(--white);
     color:var(--text); outline:none;
