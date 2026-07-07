@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RSTC — سیستم مدیریت منابع انسانی</title>
-    <link rel="stylesheet" href="style.css?v=34">
+    <link rel="stylesheet" href="style.css?v=36">
     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
@@ -36,21 +36,21 @@
             <div class="login-logo-center">
                 <img src="logo.png" alt="RSTC" class="login-logo-img">
             </div>
+            <div class="login-badge">🔐 ورود امن و سریع</div>
             <h2 class="login-heading">ورود به پنل مدیریت</h2>
             <p class="login-subtitle">سیستم جامع صدور حکم ماموریت و مدیریت پرسنل</p>
+            <p class="login-help">برای ورود، نام کاربری و رمز عبور خود را وارد کنید</p>
             <div class="input-group">
                 <label>نام کاربری</label>
                 <div class="input-icon-wrap">
-                    <span class="input-icon">👤</span>
                     <input type="text" id="username" placeholder="نام کاربری خود را وارد کنید" autocomplete="username">
                 </div>
             </div>
             <div class="input-group">
                 <label>رمز عبور</label>
                 <div class="input-icon-wrap">
-                    <span class="input-icon">🔒</span>
                     <input type="password" id="password" placeholder="رمز عبور" autocomplete="current-password">
-                    <button class="eye-btn" type="button" onclick="togglePass()" title="نمایش/پنهان">👁</button>
+                    <button id="password-toggle" class="eye-btn" type="button" onclick="togglePass()" title="نمایش/پنهان" aria-label="نمایش/پنهان رمز عبور" aria-pressed="false"><span aria-hidden="true">👁</span></button>
                 </div>
             </div>
             <div id="login-error" class="alert alert-error" style="display:none;"></div>

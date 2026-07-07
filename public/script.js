@@ -426,7 +426,16 @@ function updateClock() {
 })();
 
 // ===== PASSWORD TOGGLE =====
-function togglePass() { const i = el('password'); i.type = i.type === 'password' ? 'text' : 'password'; }
+function togglePass() {
+    const i = el('password');
+    const btn = el('password-toggle');
+    if (!i || !btn) return;
+    const show = i.type === 'password';
+    i.type = show ? 'text' : 'password';
+    btn.classList.toggle('is-active', show);
+    btn.setAttribute('aria-pressed', String(show));
+    btn.querySelector('span').textContent = show ? '🙈' : '👁';
+}
 
 // ===== SESSION TIMEOUT =====
 let _sessionTimer = null;
@@ -447,13 +456,23 @@ function _startSessionTimer() {
 function _resetSessionTimer() { _startSessionTimer(); }
 
 // ===== LOGIN =====
+function _setLoginButtonState(isLoading) {
+    const btn = el('loginBtn');
+    if (!btn) return;
+    btn.disabled = isLoading;
+    btn.classList.toggle('is-loading', isLoading);
+    btn.innerHTML = isLoading
+        ? '<span>در حال ورود...</span><span class="btn-loader" aria-hidden="true"></span>'
+        : '<span>ورود به سیستم</span><span class="btn-arrow">←</span>';
+}
+
 async function doLogin() {
     const username = el('username').value.trim();
     const password = el('password').value;
-    const errEl = el('login-error'), btn = el('loginBtn');
+    const errEl = el('login-error');
     errEl.style.display = 'none';
     if (!username || !password) { errEl.textContent = 'نام کاربری و رمز عبور الزامی است.'; errEl.style.display = 'block'; return; }
-    btn.textContent = 'در حال ورود...'; btn.disabled = true;
+    _setLoginButtonState(true);
     try {
         const data = await api('/api/login', { method: 'POST', body: JSON.stringify({ username, password }) });
         setToken(data.token); currentUserRole = data.role; currentUsername = data.username;
@@ -466,7 +485,7 @@ async function doLogin() {
         _showPage('dashboard');
         updateClock(); loadDashboard(); _startSessionTimer(); loadAllOptions();
     } catch (e) { errEl.textContent = e.message; errEl.style.display = 'block'; }
-    btn.textContent = 'ورود'; btn.disabled = false;
+    _setLoginButtonState(false);
 }
 el('password').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 el('username').addEventListener('keydown', e => { if (e.key === 'Enter') el('password').focus(); });
@@ -925,6 +944,8 @@ async function deleteUser(id) {
 }
 
 // ===== PERSONNEL =====
+let _currentPersonnelList = [];
+
 async function loadPersonnel() {
     try {
         allPersonnel = await api('/api/personnel');
@@ -939,6 +960,7 @@ function loadPersonnelCache() {
 }
 
 function _renderPersonnelTable(list) {
+    _currentPersonnelList = Array.isArray(list) ? list : [];
     const tb = el('per-table-body');
     const empty = el('per-empty');
     if (!list || !list.length) { tb.innerHTML = ''; empty.style.display = 'flex'; el('per-pagination') && (el('per-pagination').innerHTML = ''); return; }
@@ -2097,7 +2119,87 @@ function exportToExcel() {
     showToast('فایل اکسل دانلود شد', 'success');
 }
 
-function printTable() { window.print(); }
+function printTable() {
+    const list = _currentPersonnelList.length ? _currentPersonnelList : allPersonnel;
+    if (!list || !list.length) { showToast('لیست پرسنل خالی است', 'error'); return; }
+
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const dateText = `${now.getFullYear()}/${pad(now.getMonth() + 1)}/${pad(now.getDate())}`;
+    const rows = list.map((p, i) => `
+        <tr>
+            <td>${i + 1}</td>
+            <td>${_esc(p.name || '')} ${_esc(p.lname || '')}</td>
+            <td>${_esc(p.national_id || '—')}</td>
+            <td>${_esc(p.emp_num || '—')}</td>
+            <td>${_esc(p.job_title || '—')}</td>
+            <td>${_esc(p.org_post || '—')}</td>
+            <td>${_esc(p.status || '—')}</td>
+            <td>${_esc(p.phone || '—')}</td>
+        </tr>`).join('');
+
+    const printWindow = window.open('', '_blank', 'width=1000,height=800');
+    if (!printWindow) {
+        showToast('مرورگر اجازه باز کردن پنجره پرینت را نمی‌دهد.', 'error');
+        return;
+    }
+
+    const html = `<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <title>لیست پرسنل</title>
+  <style>
+    @page { size: A4 landscape; margin: 10mm; }
+    body { font-family: Tahoma, Arial, sans-serif; color: #111827; margin: 0; padding: 0; background: #fff; }
+    .header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; padding-bottom:10px; border-bottom:2px solid #0f1f3d; }
+    .header h1 { margin:0; font-size:20px; color:#0f1f3d; }
+    .header p { margin:4px 0 0; font-size:12px; color:#475569; }
+    .meta { display:flex; flex-direction:column; gap:4px; font-size:11px; color:#475569; }
+    table { width:100%; border-collapse:collapse; font-size:11px; direction:rtl; }
+    th, td { border:1px solid #cbd5e1; padding:8px 6px; text-align:center; vertical-align:middle; }
+    th { background:#f8fafc; color:#0f1f3d; font-weight:700; }
+    tr:nth-child(even) td { background:#fcfdff; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1>لیست پرسنل</h1>
+      <p>سیستم مدیریت منابع انسانی RSTC</p>
+    </div>
+    <div class="meta">
+      <span>تاریخ: ${dateText}</span>
+      <span>تعداد: ${list.length} نفر</span>
+    </div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>ردیف</th>
+        <th>نام و نام خانوادگی</th>
+        <th>کد ملی</th>
+        <th>شماره پرسنلی</th>
+        <th>عنوان شغل</th>
+        <th>پست سازمانی</th>
+        <th>وضعیت</th>
+        <th>شماره تماس</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>
+</body>
+</html>`;
+
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+        printWindow.print();
+        setTimeout(() => printWindow.close(), 500);
+    }, 300);
+}
 
 // ===== PAGINATION COMPONENT =====
 const _pagState = {};
