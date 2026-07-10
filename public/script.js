@@ -646,7 +646,7 @@ function _showPage(target) {
     if (pageEl) pageEl.style.display = 'flex';
     el('page-heading').textContent = { dashboard: 'داشبورد', personnel: 'مدیریت پرسنل', missions: 'صدور ماموریت', users: 'کاربران سیستم', reports: 'گزارش‌گیری ماموریت‌ها', backup: 'پشتیبان‌گیری', audit: 'لاگ فعالیت‌ها' }[target] || target;
     if (target === 'reports') { _loadFiltersFromURL(); }
-    if (target === 'backup') { _initRestoreDragDrop(); }
+    if (target === 'backup') { _initRestoreDragDrop(); loadBackupHistory(); }
     _onPageShow(target);
     el('sidebar').classList.remove('open');
     el('sidebarOverlay').classList.remove('open');
@@ -680,6 +680,59 @@ async function loadDashboard() {
 }
 
 function _esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+function searchPersonnel(q) {
+    if (!q || !q.length) return [];
+    const matches = [];
+    const seen = new Set();
+    const norm = typeof normalizeDigits === 'function' ? normalizeDigits(q) : q;
+    for (const p of personnelCache) {
+        const name = String(p.name || '').toLowerCase().trim();
+        const lname = String(p.lname || '').toLowerCase().trim();
+        let natId = String(p.national_id || '').toLowerCase().trim();
+        let empNum = String(p.emp_num || '').toLowerCase().trim();
+        natId = typeof normalizeDigits === 'function' ? normalizeDigits(natId) : natId;
+        empNum = typeof normalizeDigits === 'function' ? normalizeDigits(empNum) : empNum;
+        const haystack = name + ' ' + lname + ' ' + natId + ' ' + empNum;
+        if (haystack.includes(norm)) {
+            const key = p.id;
+            if (!seen.has(key)) { seen.add(key); matches.push(p); }
+        }
+    }
+    return matches.slice(0, 10);
+}
+
+function _highlightAcItem(acList) {
+    if (!acList) return;
+    const items = acList.querySelectorAll('.ac-item');
+    items.forEach((item, idx) => {
+        item.style.background = idx === acList._selectedIndex ? '#e2e8f0' : '';
+    });
+}
+
+function selectAutocompletePerson(acList, pid, input, lnameEl, empNumEl, jobTitleEl) {
+    const p = personnelCache.find(x => x.id === pid);
+    if (p) {
+        if (input) input.value = p.name || '';
+        if (lnameEl) lnameEl.value = p.lname || '';
+        if (empNumEl) empNumEl.value = p.emp_num || '';
+        if (jobTitleEl) jobTitleEl.value = p.job_title || '';
+    }
+    if (acList) acList.style.display = 'none';
+}
+
+async function importPersonnelAndSearch(q) {
+    if (personnelCache.length) return searchPersonnel(q);
+    try {
+        const data = await api('/api/personnel');
+        personnelCache = data;
+        allPersonnel = data;
+        return searchPersonnel(q);
+    } catch (e) {
+        console.warn('Fallback personnel import failed:', e);
+        return [];
+    }
+}
 
 function _renderDonutChart(containerId, data, labelKey, legendId, totalId, totalVal) {
     const c = el(containerId), legend = el(legendId), totalEl = el(totalId);
@@ -956,7 +1009,7 @@ async function loadPersonnel() {
 
 function loadPersonnelCache() {
     if (personnelCache.length) return Promise.resolve();
-    return api('/api/personnel').then(data => { personnelCache = data; allPersonnel = data; }).catch(() => { });
+    return api('/api/personnel').then(data => { personnelCache = data; allPersonnel = data; }).catch(e => { console.warn('loadPersonnelCache failed:', e); });
 }
 
 function _renderPersonnelTable(list) {
@@ -1163,33 +1216,42 @@ function initMissionNameAutocomplete() {
     if (!acList) {
         acList = document.createElement('div');
         acList.id = 'm_name_ac';
-        acList.style.cssText = 'position:absolute;background:#fff;border:1.5px solid var(--border);border-radius:8px;max-height:200px;overflow-y:auto;display:none;z-index:999;width:100%;box-shadow:0 4px 12px rgba(0,0,0,0.12);';
+        acList.style.cssText = 'position:absolute;background:#fff;border:1.5px solid var(--border);border-radius:8px;max-height:260px;overflow-y:auto;display:none;z-index:999;width:100%;box-shadow:0 4px 12px rgba(0,0,0,0.12);';
         input.parentElement.style.position = 'relative';
         input.parentElement.appendChild(acList);
     }
     input.oninput = _debounce(function () {
         const q = this.value.trim().toLowerCase();
         if (!q || q.length < 1) { acList.style.display = 'none'; return; }
-        const matches = personnelCache.filter(p => (p.name + ' ' + p.lname).toLowerCase().includes(q)).slice(0, 10);
-        if (!matches.length) { acList.style.display = 'none'; return; }
-        acList.innerHTML = matches.map(p => `<div class="ac-item" style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f1f5f5;" data-id="${p.id}"><strong>${_esc(p.name)} ${_esc(p.lname)}</strong><span style="color:#94a3b8;font-size:11px;margin-right:8px;">${_esc(p.emp_num) || ''} — ${_esc(p.job_title) || ''}</span></div>`).join('');
-        acList.style.display = 'block';
-        acList.querySelectorAll('.ac-item').forEach(item => {
-            item.onmouseenter = function () { this.style.background = '#f8fafc'; };
-            item.onmouseleave = function () { this.style.background = ''; };
-            item.onclick = function () {
-                const pid = parseInt(this.dataset.id);
-                const p = personnelCache.find(x => x.id === pid);
-                if (p) {
-                    input.value = p.name;
-                    el('m_lname').value = p.lname || '';
-                    el('m_emp_num').value = p.emp_num || '';
-                    el('m_job_title').value = p.job_title || '';
-                }
-                acList.style.display = 'none';
-            };
-        });
-    }, 200);
+        let matches = personnelCache.length ? searchPersonnel(q) : [];
+        const renderFallback = function(ms) {
+            if (!ms.length) { acList.style.display = 'none'; return; }
+            acList.innerHTML = ms.map(p => `<div class="ac-item" style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f1f5f5;" data-id="${p.id}"><strong>${_esc(p.name)} ${_esc(p.lname)}</strong><span style="color:#94a3b8;font-size:11px;margin-right:8px;">${_esc(p.emp_num) || ''} — ${_esc(p.job_title) || ''}${p.national_id ? ' — کد:' + _esc(p.national_id) : ''}</span></div>`).join('');
+            acList.style.display = 'block';
+            acList._selectedIndex = -1;
+            acList._matches = ms;
+            acList.querySelectorAll('.ac-item').forEach((item, idx) => {
+                item.onmouseenter = function () { acList._selectedIndex = idx; _highlightAcItem(acList); };
+                item.onclick = function () { selectAutocompletePerson(acList, parseInt(this.dataset.id), input, el('m_lname'), el('m_emp_num'), el('m_job_title')); };
+            });
+        };
+        if (matches.length) { renderFallback(matches); return; }
+        if (q.length >= 2) {
+            acList.innerHTML = '<div style="padding:12px;text-align:center;color:#94a3b8;font-size:12px;">در حال جستجو...</div>';
+            acList.style.display = 'block';
+            importPersonnelAndSearch(q).then(ms => renderFallback(ms)).catch(() => { acList.style.display = 'none'; });
+            return;
+        }
+        acList.style.display = 'none';
+    }, 150);
+    input.onkeydown = function (e) {
+        const ac = el('m_name_ac');
+        if (!ac || ac.style.display === 'none') return;
+        if (e.key === 'ArrowDown') { e.preventDefault(); ac._selectedIndex = Math.min(ac._selectedIndex + 1, (ac._matches || []).length - 1); _highlightAcItem(ac); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); ac._selectedIndex = Math.max(ac._selectedIndex - 1, 0); _highlightAcItem(ac); }
+        else if (e.key === 'Enter') { e.preventDefault(); if (ac._selectedIndex >= 0 && ac._matches && ac._matches[ac._selectedIndex]) { const p = ac._matches[ac._selectedIndex]; selectAutocompletePerson(ac, p.id, input, el('m_lname'), el('m_emp_num'), el('m_job_title')); } }
+        else if (e.key === 'Escape') { ac.style.display = 'none'; }
+    };
     input.onblur = _debounce(function () { acList.style.display = 'none'; }, 250);
 }
 
@@ -1207,24 +1269,34 @@ function _initReportsPersonnelAutocomplete() {
     const show = function () {
         const q = input.value.trim().toLowerCase();
         if (!q || q.length < 1) { acList.style.display = 'none'; return; }
-        const matches = personnelCache.filter(p => (p.name + ' ' + p.lname).toLowerCase().includes(q)).slice(0, 10);
-        if (!matches.length) { acList.style.display = 'none'; return; }
-        acList.innerHTML = matches.map(p => `<div class="ac-item" style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f1f5f5;" data-id="${p.id}"><strong>${_esc(p.name)} ${_esc(p.lname)}</strong><span style="color:#94a3b8;font-size:11px;margin-right:8px;">${_esc(p.emp_num || '')} — ${_esc(p.job_title || '')}</span></div>`).join('');
-        acList.style.display = 'block';
-        acList.querySelectorAll('.ac-item').forEach(item => {
-            item.onmouseenter = function () { this.style.background = '#f8fafc'; };
-            item.onmouseleave = function () { this.style.background = ''; };
-            item.onclick = function () {
-                const pid = parseInt(this.dataset.id);
-                const p = personnelCache.find(x => x.id === pid);
-                if (p) {
-                    input.value = p.name;
-                    const lnameEl = el('r_lname'); if (lnameEl) lnameEl.value = p.lname || '';
-                    const empEl = el('r_emp_num'); if (empEl) empEl.value = p.emp_num || '';
-                }
-                acList.style.display = 'none';
-            };
-        });
+        const matches = personnelCache.length ? searchPersonnel(q) : [];
+        const renderFallback = function(ms) {
+            if (!ms.length) { acList.style.display = 'none'; return; }
+            acList.innerHTML = ms.map(p => `<div class="ac-item" style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f1f5f5;" data-id="${p.id}"><strong>${_esc(p.name)} ${_esc(p.lname)}</strong><span style="color:#94a3b8;font-size:11px;margin-right:8px;">${_esc(p.emp_num || '')} — ${_esc(p.job_title || '')}</span></div>`).join('');
+            acList.style.display = 'block';
+            acList.querySelectorAll('.ac-item').forEach((item, idx) => {
+                item.onmouseenter = function () { this.style.background = '#f8fafc'; };
+                item.onmouseleave = function () { this.style.background = ''; };
+                item.onclick = function () {
+                    const pid = parseInt(this.dataset.id);
+                    const p = personnelCache.find(x => x.id === pid);
+                    if (p) {
+                        input.value = p.name;
+                        const lnameEl = el('r_lname'); if (lnameEl) lnameEl.value = p.lname || '';
+                        const empEl = el('r_emp_num'); if (empEl) empEl.value = p.emp_num || '';
+                    }
+                    acList.style.display = 'none';
+                };
+            });
+        };
+        if (matches.length) { renderFallback(matches); return; }
+        if (q.length >= 2) {
+            acList.innerHTML = '<div style="padding:12px;text-align:center;color:#94a3b8;font-size:12px;">در حال جستجو...</div>';
+            acList.style.display = 'block';
+            importPersonnelAndSearch(q).then(ms => renderFallback(ms)).catch(() => { acList.style.display = 'none'; });
+            return;
+        }
+        acList.style.display = 'none';
     };
     input.oninput = _debounce(show, 200);
     input.onblur = _debounce(function () { acList.style.display = 'none'; }, 250);
@@ -2012,10 +2084,10 @@ function _initRestoreDragDrop() {
     if (!area || area._ddInit) return;
     area._ddInit = true;
     ['dragenter', 'dragover'].forEach(ev => {
-        area.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); area.style.borderColor = 'var(--gold)'; area.style.background = 'rgba(200,168,75,0.08)'; });
+        area.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); area.classList.add('drag-over'); });
     });
     ['dragleave', 'drop'].forEach(ev => {
-        area.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); area.style.borderColor = ''; area.style.background = ''; });
+        area.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); area.classList.remove('drag-over'); });
     });
     area.addEventListener('drop', e => {
         const file = e.dataTransfer.files[0];
@@ -2026,7 +2098,8 @@ function _initRestoreDragDrop() {
 function _handleRestoreFileObj(file) {
     if (!file.name.endsWith('.db')) { showToast('فقط فایل .db مجاز است', 'error'); return; }
     _restoreFile = file;
-    el('restore-file-name').textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+    el('restore-file-name').textContent = file.name;
+    el('restore-file-size').textContent = (file.size / 1024).toFixed(1) + ' KB';
     el('restore-selected-file').style.display = 'flex';
     el('restore-upload-area').style.display = 'none';
     el('btn-restore').disabled = false;
@@ -2048,8 +2121,32 @@ function removeRestoreFile() {
 async function restoreDatabase() {
     if (currentUserRole !== 'admin') { showToast('فقط مدیر می‌تواند بازیابی کند', 'error'); return; }
     if (!_restoreFile) { showToast('فایل پشتیبان را انتخاب کنید', 'error'); return; }
-    if (!await _confirm('آیا مطمئن هستید؟ تمام اطلاعات فعلی با پشتیبان جایگزین می‌شود!')) return;
+    
+    const progress = el('restore-progress');
+    const progressText = el('restore-progress-text');
+    progress.style.display = 'block';
+    progressText.textContent = 'در حال اعتبارسنجی فایل...';
+    
     try {
+        const validation = await validateBackup(_restoreFile);
+        if (!validation.valid) {
+            progress.style.display = 'none';
+            showToast('فایل نامعتبر است: ' + validation.error, 'error');
+            return;
+        }
+        
+        const preview = `📊 پیش‌نمایش فایل پشتیبان:
+• یکپارچگی: ${validation.integrity}
+• حجم: ${validation.sizeMB} MB
+• جدول‌ها: ${validation.tables.length}
+• رکوردها: ${Object.entries(validation.counts).map(([t,c]) => `${t}: ${c}`).join(', ')}`;
+        
+        if (!await _confirm('آیا مطمئن هستید؟ تمام اطلاعات فعلی با پشتیبان جایگزین می‌شود!\n\n' + preview)) {
+            progress.style.display = 'none';
+            return;
+        }
+        
+        progressText.textContent = 'در حال بازیابی دیتابیس...';
         const buffer = await _restoreFile.arrayBuffer();
         await fetch('/api/restore', {
             method: 'POST',
@@ -2060,9 +2157,81 @@ async function restoreDatabase() {
             if (!res.ok) throw new Error(data.error || 'خطا در بازیابی');
             return data;
         });
+        progress.style.display = 'none';
         showToast('بازیابی با موفقیت انجام شد. صفحه را رفرش کنید.', 'success');
         removeRestoreFile();
         setTimeout(() => location.reload(), 2000);
+    } catch (e) {
+        progress.style.display = 'none';
+        showToast(e.message, 'error');
+    }
+}
+
+async function validateBackup(file) {
+    const buffer = await file.arrayBuffer();
+    return fetch('/api/backups/validate', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + getToken(), 'Content-Type': 'application/octet-stream' },
+        body: buffer
+    }).then(res => res.json());
+}
+
+function switchBackupTab(tabId, btn) {
+    document.querySelectorAll('.backup-tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.backup-tab').forEach(el => el.classList.remove('active'));
+    el('tab-' + tabId).classList.add('active');
+    btn.classList.add('active');
+    if (tabId === 'backup-history') loadBackupHistory();
+}
+
+async function loadBackupHistory() {
+    try {
+        const res = await fetch('/api/backups', { headers: { 'Authorization': 'Bearer ' + getToken() } });
+        if (!res.ok) throw new Error('خطا در دریافت اطلاعات');
+        const data = await res.json();
+        const body = el('backup-history-body');
+        if (!data.backups || !data.backups.length) {
+            body.innerHTML = `<tr class="backup-history-empty-state"><td colspan="4"><span class="empty-icon">📭</span><p>هنوز پشتیبانی ایجاد نشده</p></td></tr>`;
+            return;
+        }
+        body.innerHTML = data.backups.map(b => `
+            <tr>
+                <td><span class="backup-history-name">${esc(b.name)}</span></td>
+                <td><span class="backup-history-size">${b.sizeMB} MB</span></td>
+                <td><span class="backup-history-date">${b.modifiedJalali}</span></td>
+                <td>
+                    <div class="backup-history-actions">
+                        <a class="btn-history-download" href="/api/backups/${encodeURIComponent(b.name)}" download>
+                            ⬇️ دانلود
+                        </a>
+                        <button class="btn-history-delete" onclick="deleteBackup('${esc(b.name)}')" title="حذف">🗑️</button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+    } catch (e) {
+        el('backup-history-body').innerHTML = `<tr><td colspan="4" style="text-align:center;color:red">خطا در بارگذاری</td></tr>`;
+    }
+}
+
+async function downloadBackup(name) {
+    const a = document.createElement('a');
+    a.href = '/api/backups/' + encodeURIComponent(name);
+    a.download = name;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+
+async function deleteBackup(name) {
+    if (!await _confirm('آیا مطمئن هستید که پشتیبان «' + name + '» حذف شود؟')) return;
+    try {
+        const res = await fetch('/api/backups/' + encodeURIComponent(name), {
+            method: 'DELETE',
+            headers: { 'Authorization': 'Bearer ' + getToken() }
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        showToast('پشتیبان حذف شد', 'success');
+        loadBackupHistory();
     } catch (e) { showToast(e.message, 'error'); }
 }
 
@@ -2277,6 +2446,66 @@ function _onPageShow(target) {
     if (target === 'reports' && !_pageLoaded.reports) { _pageLoaded.reports = true; if (!personnelCache.length) loadPersonnelCache(); initReportDatePickers(); _initReportsPersonnelAutocomplete(); }
     else if (target === 'reports') { initReportDatePickers(); _initReportsPersonnelAutocomplete(); }
     if (target === 'audit') { loadAuditLog(); }
+}
+
+// ===== AI CHAT =====
+function toggleAIChat() {
+    const panel = el('ai-chat-panel');
+    if (panel) panel.classList.toggle('open');
+}
+
+function addAIMessage(text, sender) {
+    const container = el('ai-chat-messages');
+    if (!container) return;
+    const div = document.createElement('div');
+    div.className = `ai-msg ai-msg-${sender}`;
+    div.innerHTML = `<div class="ai-msg-bubble">${_esc(text).replace(/\n/g, '<br>')}</div>`;
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+}
+
+function showAITyping() {
+    const container = el('ai-chat-messages');
+    if (!container) return;
+    const div = document.createElement('div');
+    div.id = 'ai-typing-indicator';
+    div.className = 'ai-msg ai-msg-bot';
+    div.innerHTML = '<div class="ai-chat-typing"><span></span><span></span><span></span></div>';
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+}
+
+function hideAITyping() {
+    const el2 = el('ai-typing-indicator');
+    if (el2) el2.remove();
+}
+
+async function submitAIChat(e) {
+    if (e) e.preventDefault();
+    const input = el('ai-chat-input');
+    const errorEl = el('ai-chat-error');
+    const sendBtn = el('ai-chat-send');
+    const question = input ? input.value.trim() : '';
+    errorEl.style.display = 'none';
+    if (!question) return;
+
+    addAIMessage(question, 'user');
+    if (input) input.value = '';
+    if (sendBtn) sendBtn.disabled = true;
+    showAITyping();
+
+    try {
+        const data = await api('/api/ai/ask', { method: 'POST', body: JSON.stringify({ question }) });
+        hideAITyping();
+        addAIMessage(data.answer || 'پاسخی دریافت نشد.', 'bot');
+    } catch (err) {
+        hideAITyping();
+        addAIMessage('خطا: ' + err.message, 'bot');
+        if (errorEl) { errorEl.textContent = err.message; errorEl.style.display = 'block'; }
+    } finally {
+        if (sendBtn) sendBtn.disabled = false;
+        if (input) input.focus();
+    }
 }
 
 // ===== INIT on page load =====

@@ -496,8 +496,8 @@
             <tbody id="missions-table-body"><tr><td colspan="7"><div class="empty-state-improved"><div class="empty-icon">📋</div><div class="empty-title">هنوز ماموریتی ثبت نشده</div><div class="empty-desc">روی «ثبت ماموریت جدید» کلیک کنید</div></div></td></tr></tbody>
         </table>
         <div class="pagination-wrapper" id="missions-pagination"></div>
-    </div>
-</section>
+                </div>
+            </section>
 
             <!-- صفحه گزارش‌گیری -->
             <section id="page-reports" class="page" style="display:none;">
@@ -655,68 +655,184 @@
 
             <!-- بخش پشتیبان‌گیری -->
             <section id="page-backup" class="page" style="display:none;">
-                <div class="backup-card">
-                    <div class="backup-header">
-                        <span class="backup-icon">💾</span>
-                        <div>
-                            <h3>پشتیبان‌گیری از دیتابیس</h3>
-                            <p class="backup-desc">فایل پشتیبان دیتابیس SQLite را دانلود کنید</p>
+                <div class="backup-page-header">
+                    <h2>پشتیبان‌گیری و بازیابی</h2>
+                    <p>مدیریت امن نسخه‌های پشتیبان از پایگاه داده</p>
+                </div>
+
+                <div class="backup-tabs">
+                    <button class="backup-tab active" onclick="switchBackupTab('backup-main', this)">
+                        <span>💾</span><span>پشتیبان‌گیری</span>
+                    </button>
+                    <button class="backup-tab" onclick="switchBackupTab('backup-history', this)">
+                        <span>📋</span><span>تاریخچه</span>
+                    </button>
+                    <button class="backup-tab" onclick="switchBackupTab('backup-settings', this)">
+                        <span>⚙️</span><span>تنظیمات</span>
+                    </button>
+                </div>
+
+                <div class="backup-tab-content active" id="tab-backup-main">
+                    <div class="backup-grid-compact">
+                        <!-- Backup Card -->
+                        <div class="backup-card">
+                            <div class="backup-card-header compact">
+                                <div class="backup-icon-wrapper">
+                                    <span class="backup-icon">💾</span>
+                                </div>
+                                <div>
+                                    <h3>ایجاد پشتیبان</h3>
+                                    <p class="backup-desc">دانلود فایل پشتیبان</p>
+                                </div>
+                            </div>
+                            <div class="backup-card-body compact">
+                                <div class="backup-stats">
+                                    <div class="backup-stat-item">
+                                        <span class="backup-stat-label">فرمت</span>
+                                        <span class="backup-stat-value">SQLite .db</span>
+                                    </div>
+                                    <div class="backup-stat-item">
+                                        <span class="backup-stat-label">مشخصات</span>
+                                        <span class="backup-stat-value" id="backup-filename">RSTC_Backup_YYYY-MM-DD.db</span>
+                                    </div>
+                                    <div class="backup-stat-item">
+                                        <span class="backup-stat-label">زمان</span>
+                                        <span class="backup-stat-value" id="backup-time">—</span>
+                                    </div>
+                                </div>
+                                <button class="btn-backup" onclick="backupDatabase()">
+                                    <span class="btn-backup-icon">⬇️</span>
+                                    <span>دانلود پشتیبان</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Restore Card -->
+                        <div class="backup-card restore-card">
+                            <div class="backup-card-header compact restore-header">
+                                <div class="restore-icon-wrapper">
+                                    <span class="backup-icon">🔄</span>
+                                </div>
+                                <div>
+                                    <h3>بازیابی دیتابیس</h3>
+                                    <p class="backup-desc">بازگرداندن اطلاعات</p>
+                                </div>
+                            </div>
+                            <div class="backup-card-body compact">
+                                <div class="restore-alert compact">
+                                    <span class="restore-alert-icon">⚠️</span>
+                                    <div>
+                                        <strong>هشدار:</strong>
+                                        <span>بازیابی، اطلاعات فعلی را جایگزین می‌کند. غیرقابل بازگشت است.</span>
+                                    </div>
+                                </div>
+                                <div class="restore-upload-area compact" id="restore-upload-area">
+                                    <input type="file" id="restoreFile" accept=".db" style="display:none;" onchange="handleRestoreFile(this)">
+                                    <div class="restore-upload-content" onclick="document.getElementById('restoreFile').click()">
+                                        <div class="restore-upload-icon">📁</div>
+                                        <p class="restore-upload-text">فایل پشتیبان را رها کنید</p>
+                                        <p class="restore-upload-text">یا کلیک کنید</p>
+                                        <span class="restore-upload-hint">.db</span>
+                                    </div>
+                                </div>
+                                <div class="restore-selected-file" id="restore-selected-file" style="display:none;">
+                                    <div class="restore-file-info">
+                                        <span class="restore-file-icon">📄</span>
+                                        <div class="restore-file-details">
+                                            <span class="restore-file-name" id="restore-file-name">—</span>
+                                            <span class="restore-file-size" id="restore-file-size"></span>
+                                        </div>
+                                    </div>
+                                    <button class="restore-file-remove" onclick="removeRestoreFile()" title="حذف">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                                        </svg>
+                                    </button>
+                                </div>
+                                <button class="btn-restore" id="btn-restore" onclick="restoreDatabase()" disabled>
+                                    <span class="btn-restore-icon">🔄</span>
+                                    <span>بازیابی</span>
+                                </button>
+                                <div class="restore-progress" id="restore-progress" style="display:none;">
+                                    <div class="restore-progress-bar">
+                                        <div class="restore-progress-fill" id="restore-progress-fill"></div>
+                                    </div>
+                            <p class="restore-progress-text" id="restore-progress-text">در حال پردازش...</p>
                         </div>
                     </div>
-                    <div class="backup-body">
-                        <div class="backup-info">
-                            <div class="backup-info-item">
-                                <span class="backup-info-label">نوع فایل:</span>
-                                <span class="backup-info-value">SQLite Database (.db)</span>
+                </div>
+                </div>
+            </div>
+
+                <div class="backup-tab-content" id="tab-backup-history">
+                    <div class="backup-card">
+                        <div class="backup-card-header history-header">
+                            <div class="backup-icon-wrapper">
+                                <span class="backup-icon">📋</span>
                             </div>
-                            <div class="backup-info-item">
-                                <span class="backup-info-label">نام فایل:</span>
-                                <span class="backup-info-value" id="backup-filename">RSTC_Backup_YYYY-MM-DD.db</span>
+                            <div>
+                                <h3>تاریخچه پشتیبان‌ها</h3>
+                                <p class="backup-desc">لیست فایل‌های پشتیبان</p>
                             </div>
-                            <div class="backup-info-item">
-                                <span class="backup-info-label">زمان:</span>
-                                <span class="backup-info-value" id="backup-time">—</span>
+                            <button class="btn-refresh-backups" onclick="loadBackupHistory()">
+                                <span>🔄</span>
+                                <span>بروزرسانی</span>
+                            </button>
+                        </div>
+                        <div class="backup-card-body">
+                            <div class="backup-history-table-wrapper">
+                                <table class="backup-history-table">
+                                    <thead>
+                                        <tr>
+                                            <th>نام فایل</th>
+                                            <th>اندازه</th>
+                                            <th>تاریخ ایجاد</th>
+                                            <th>عملیات</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="backup-history-body">
+                                        <tr class="backup-history-empty">
+                                            <td colspan="4">در حال بارگذاری...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
-                        <button class="btn-backup" onclick="backupDatabase()">
-                            <span class="btn-backup-icon">📥</span>
-                            دانلود پشتیبان
-                        </button>
                     </div>
                 </div>
 
-                <div class="backup-card" style="margin-top:16px;">
-                    <div class="backup-header restore-header">
-                        <span class="backup-icon">🔄</span>
-                        <div>
-                            <h3>بازیابی از پشتیبان</h3>
-                            <p class="backup-desc">فایل پشتیبان قبلی (.db) را آپلود کنید تا بازیابی شود</p>
-                        </div>
-                    </div>
-                    <div class="backup-body">
-                        <div class="restore-warning">
-                            <span class="restore-warning-icon">⚠️</span>
+                <div class="backup-tab-content" id="tab-backup-settings">
+                    <div class="backup-card">
+                        <div class="backup-card-header settings-header">
+                            <div class="backup-icon-wrapper">
+                                <span class="backup-icon">⚙️</span>
+                            </div>
                             <div>
-                                <strong>هشدار:</strong> بازیابی دیتابیس، تمام اطلاعات فعلی را با اطلاعات پشتیبان جایگزین می‌کند. این عملیات غیرقابل بازگشت است.
+                                <h3>تنظیمات پشتیبان‌گیری خودکار</h3>
+                                <p class="backup-desc">پیکربندی زمان‌بندی و نگهداری خودکار</p>
                             </div>
                         </div>
-                        <div class="restore-upload-area" id="restore-upload-area">
-                            <input type="file" id="restoreFile" accept=".db" style="display:none;" onchange="handleRestoreFile(this)">
-                            <div class="restore-upload-content" onclick="document.getElementById('restoreFile').click()">
-                                <span class="restore-upload-icon">📁</span>
-                                <p>فایل پشتیبان (.db) را اینجا رها کنید یا کلیک کنید</p>
-                                <span class="restore-upload-hint">فرمت پذیرفته شده: .db</span>
+                        <div class="backup-card-body">
+                            <div class="settings-grid">
+                                <div class="settings-item">
+                                    <span class="settings-label">زمان‌بندی</span>
+                                    <span class="settings-value">هر شب ساعت ۲:۰۰</span>
+                                </div>
+                                <div class="settings-item">
+                                    <span class="settings-label">حداکثر نگهداری</span>
+                                    <span class="settings-value">۳۰ فایل آخر</span>
+                                </div>
+                                <div class="settings-item">
+                                    <span class="settings-label">پوشه ذخیره‌سازی</span>
+                                    <span class="settings-value">./backups/</span>
+                                </div>
+                                <div class="settings-item">
+                                    <span class="settings-label">وضعیت سرویس</span>
+                                    <span class="settings-value status-active">فعال</span>
+                                </div>
                             </div>
                         </div>
-                        <div class="restore-selected-file" id="restore-selected-file" style="display:none;">
-                            <span class="restore-file-icon">📄</span>
-                            <span id="restore-file-name">—</span>
-                            <button class="restore-file-remove" onclick="removeRestoreFile()">✕</button>
-                        </div>
-                        <button class="btn-restore" id="btn-restore" onclick="restoreDatabase()" disabled>
-                            <span class="btn-backup-icon">🔄</span>
-                            بازیابی دیتابیس
-                        </button>
                     </div>
                 </div>
             </section>
@@ -830,7 +946,46 @@
     </div>
 </div>
 
-<script src="script.js?v=35"></script>
+<!-- AI Chat Widget -->
+<div id="ai-chat-widget" class="ai-chat-widget">
+    <button id="ai-chat-toggle" class="ai-chat-toggle" onclick="toggleAIChat()" title="پرسش از دستیار هوشمند">
+        <span class="ai-chat-icon">🤖</span>
+        <span class="ai-chat-pulse"></span>
+    </button>
+    <div id="ai-chat-panel" class="ai-chat-panel">
+        <div class="ai-chat-header">
+            <div class="ai-chat-title">
+                <span class="ai-chat-avatar">🤖</span>
+                <div>
+                    <strong>دستیار هوشمند RSTC</strong>
+                    <span class="ai-chat-subtitle">پرسش از دیتابیس پرسنل و ماموریت</span>
+                </div>
+            </div>
+            <button class="ai-chat-close" onclick="toggleAIChat()">✕</button>
+        </div>
+        <div id="ai-chat-messages" class="ai-chat-messages">
+            <div class="ai-msg ai-msg-bot">
+                <div class="ai-msg-bubble">
+                    سلام! 👋 من دستیار هوشمند سیستم هستم. می‌توانید سوالات خود را درباره پرسنل و ماموریت‌ها بپرسید.<br><br>
+                    <strong>مثال‌ها:</strong><br>
+                    • چند پرسنل فعال داریم؟<br>
+                    • لیست ماموریت‌های انفرادی<br>
+                    • چند ماموریت در ناحیه ۱ داریم؟<br>
+                    • ماموریت‌های پرسنل با شماره پرسنلی ۱۲۳۴۵
+                </div>
+            </div>
+        </div>
+        <div class="ai-chat-input-area">
+            <div id="ai-chat-error" class="ai-chat-error" style="display:none;"></div>
+            <form id="ai-chat-form" class="ai-chat-form" onsubmit="submitAIChat(event)">
+                <input type="text" id="ai-chat-input" class="ai-chat-input" placeholder="سوال خود را بنویسید..." autocomplete="off">
+                <button type="submit" id="ai-chat-send" class="ai-chat-send">📤</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="script.js?v=36"></script>
 
 <!-- قالب پرینت ماموریت -->
 <div id="print-mission-area" class="print-area">

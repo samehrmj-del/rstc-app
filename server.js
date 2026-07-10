@@ -597,16 +597,88 @@ app.post('/api/reports/missions', authenticateToken, async (req, res) => {
 
 // ===== BACKUP =====
 const fs = require('fs');
+
 app.get('/api/backup', authenticateToken, (req, res) => {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'دسترسی غیرمجاز' });
     const dbPath = path.resolve(DB_PATH);
     if (!fs.existsSync(dbPath)) return res.status(404).json({ error: 'فایل دیتابیس یافت نشد' });
-    // ✅ FIX: قبل از خواندن فایل، تمام تراکنش‌های WAL را به فایل اصلی .db منتقل می‌کنیم
-    // در غیر این صورت آخرین تغییرات ثبت‌شده ممکن است در بکاپ نباشند
     try { db.pragma('wal_checkpoint(TRUNCATE)'); } catch (e) { console.error('Checkpoint warning:', e.message); }
-    res.setHeader('Content-Disposition', `attachment; filename=RSTC_Backup_${new Date().toISOString().slice(0,10)}.db`);
+    const filename = `RSTC_Backup_${new Date().toISOString().slice(0,10)}.db`;
+    res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
     res.setHeader('Content-Type', 'application/octet-stream');
     fs.createReadStream(dbPath).pipe(res);
+});
+
+app.get('/api/backups', authenticateToken, (req, res) => {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'دسترسی غیرمجاز' });
+    try {
+        if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true });
+        const files = fs.readdirSync(BACKUP_DIR).filter(f => f.endsWith('.db'));
+        const list = files.map(f => {
+            const fp = path.join(BACKUP_DIR, f);
+            const stat = fs.statSync(fp);
+            const mtime = stat.mtime;
+            return {
+                name: f,
+                size: stat.size,
+                sizeMB: (stat.size / 1024 / 1024).toFixed(2),
+                modified: mtime.toISOString(),
+                modifiedJalali: mtime.toLocaleString('fa-IR')
+            };
+        }).sort((a, b) => b.modified.localeCompare(a.modified));
+        res.json({ backups: list, settings: { maxBackups: 30, scheduleHour: 2 } });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/backups/:name', authenticateToken, (req, res) => {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'دسترسی غیرمجاز' });
+    const fp = path.join(BACKUP_DIR, req.params.name);
+    if (!fs.existsSync(fp)) return res.status(404).json({ error: 'فایل پشتیبان یافت نشد' });
+    res.setHeader('Content-Disposition', `attachment; filename=${req.params.name}`);
+    res.setHeader('Content-Type', 'application/octet-stream');
+    fs.createReadStream(fp).pipe(res);
+});
+
+app.post('/api/backups/validate', authenticateToken, express.raw({ type: 'application/octet-stream', limit: '50mb' }), (req, res) => {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'دسترسی غیرمجاز' });
+    try {
+        const tmp = path.join(BACKUP_DIR, 'tmp_validate_' + Date.now() + '.db');
+        fs.writeFileSync(tmp, req.body);
+        const testDb = new Database(tmp);
+        const tables = testDb.prepare("SELECT name FROM sqlite_master WHERE type='table'").all();
+        const counts = {};
+        for (const t of tables) {
+            try { counts[t.name] = testDb.prepare(`SELECT COUNT(*) as c FROM [${t.name}]`).get().c; }
+            catch(e) { counts[t.name] = 'err'; }
+        }
+        const integrity = testDb.prepare('PRAGMA integrity_check').get();
+        const pageCount = testDb.prepare('PRAGMA page_count').get().page_count;
+        const pageSize = testDb.prepare('PRAGMA page_size').get().page_size;
+        testDb.close();
+        fs.unlinkSync(tmp);
+        res.json({
+            valid: true,
+            sizeMB: (req.body.length / 1024 / 1024).toFixed(2),
+            tables: tables.map(t => t.name),
+            counts,
+            integrity: integrity.integrity_check,
+            pageCount, pageSize,
+            estimatedSizeMB: ((pageCount * pageSize) / 1024 / 1024).toFixed(2)
+        });
+    } catch (e) {
+        try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch(ex){}
+        res.status(400).json({ valid: false, error: e.message });
+    }
+});
+
+app.delete('/api/backups/:name', authenticateToken, (req, res) => {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'دسترسی غیرمجاز' });
+    try {
+        const fp = path.join(BACKUP_DIR, req.params.name);
+        if (!fs.existsSync(fp)) return res.status(404).json({ error: 'فایل پشتیبان یافت نشد' });
+        fs.unlinkSync(fp);
+        res.json({ success: true, message: 'فایل پشتیبان حذف شد.' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/restore', authenticateToken, express.raw({ type: 'application/octet-stream', limit: '50mb' }), (req, res) => {
@@ -614,22 +686,12 @@ app.post('/api/restore', authenticateToken, express.raw({ type: 'application/oct
     try {
         const dbPath = path.resolve(DB_PATH);
         const backupPath = dbPath + '.bak';
-
-        // ✅ FIX: قبل از جایگزینی فایل، کانکشن زنده فعلی را می‌بندیم
-        // در غیر این صورت better-sqlite3 (به‌خصوص در حالت WAL) همچنان به نسخه قدیمی
-        // اشاره می‌کند و داده‌های بازیابی‌شده هرگز در پاسخ‌های API دیده نمی‌شوند
         try { db.close(); } catch (e) { console.error('DB close warning:', e.message); }
-
         if (fs.existsSync(dbPath)) fs.copyFileSync(dbPath, backupPath);
         fs.writeFileSync(dbPath, req.body);
-
-        // پاک کردن فایل‌های جانبی WAL/SHM قدیمی که ممکن است با فایل جدید ناسازگار باشند
         [`${dbPath}-wal`, `${dbPath}-shm`].forEach(f => { if (fs.existsSync(f)) fs.unlinkSync(f); });
-
-        // باز کردن مجدد کانکشن روی فایل تازه بازیابی‌شده
         db = new Database(dbPath);
         db.pragma('journal_mode = WAL');
-
         res.json({ success: true, message: 'بازیابی با موفقیت انجام شد و اطلاعات جدید فعال شدند.' });
     } catch (e) {
         res.status(500).json({ error: 'خطا در بازیابی: ' + e.message });
@@ -762,6 +824,17 @@ app.get('/api/missions/:id/pdf', (req, res) => {
 
 // ===== HEALTH CHECK =====
 app.get('/api/health', (req, res) => res.json({ ok: true, time: new Date().toISOString() }));
+
+// ===== AI CHAT =====
+const { parseAndAnswer } = require('./ai_engine');
+app.post('/api/ai/ask', authenticateToken, async (req, res) => {
+    try {
+        const { question } = req.body || {};
+        if (!question || !question.trim()) return res.status(400).json({ error: 'سوال الزامی است.' });
+        const answer = await parseAndAnswer(question.trim(), dbGet, dbAll);
+        res.json({ success: true, question, answer });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
 
 // ===== START =====
 initializeDatabase().then(() => {
