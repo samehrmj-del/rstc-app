@@ -388,8 +388,24 @@
                             </div>
                         </div>
                         <div class="input-group"><label>سطح دسترسی</label>
-                            <select id="newRole"><option value="admin">مدیر کل</option><option value="user">کاربر عادی</option></select>
+                            <select id="newRole" onchange="togglePermissionMatrix()">
+                                <option value="admin">مدیر کل</option>
+                                <option value="editor">ویرایشگر</option>
+                                <option value="operator">امور ماموریت</option>
+                                <option value="viewer">بیننده</option>
+                                <option value="custom">سفارشی</option>
+                            </select>
                         </div>
+                    </div>
+                    <div id="permission-matrix" class="permission-matrix" style="display:none;">
+                        <div class="permission-matrix-header">
+                            <h4>دسترسی‌های سفارشی</h4>
+                            <div class="permission-matrix-actions">
+                                <button class="btn-permission-sm" onclick="selectAllPermissions()">انتخاب همه</button>
+                                <button class="btn-permission-sm btn-permission-ghost" onclick="deselectAllPermissions()">پاک کردن</button>
+                            </div>
+                        </div>
+                        <div class="permission-groups" id="permission-groups"></div>
                     </div>
                     <div class="form-grid-3" style="padding-top:0;">
                         <div class="input-group"><label>وضعیت</label>

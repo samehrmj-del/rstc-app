@@ -33,6 +33,7 @@ function attachDigitNormalizer(id) {
 // ===== STATE =====
 let currentUserRole = 'user';
 let currentUsername = '';
+let currentUserPermissions = [];
 let allPersonnel = [];
 let allMissions = [];
 let personnelCache = [];
@@ -40,6 +41,11 @@ let _allUsers = [];
 let _editingUserId = null;
 
 // ===== UTILS =====
+function hasPerm(perms, perm) {
+    if (!Array.isArray(perms)) return false;
+    if (perms.includes('*')) return true;
+    return perms.includes(perm);
+}
 function getToken() { return localStorage.getItem('rstc_token'); }
 function setToken(t) { localStorage.setItem('rstc_token', t); }
 function clearToken() { localStorage.removeItem('rstc_token'); }
@@ -475,13 +481,16 @@ async function doLogin() {
     _setLoginButtonState(true);
     try {
         const data = await api('/api/login', { method: 'POST', body: JSON.stringify({ username, password }) });
-        setToken(data.token); currentUserRole = data.role; currentUsername = data.username;
+        setToken(data.token); currentUserRole = data.role; currentUsername = data.username; currentUserPermissions = data.permissions || [];
         el('login-page').style.display = 'none';
         el('dashboard-page').style.display = 'flex';
         el('user-display-name').textContent = data.username;
-        el('user-display-role').textContent = data.role === 'admin' ? 'مدیر کل' : 'کاربر عادی';
+        el('user-display-role').textContent = data.role === 'admin' ? 'مدیر کل' : (data.role === 'editor' ? 'ویرایشگر' : data.role === 'operator' ? 'امور ماموریت' : data.role === 'viewer' ? 'بیننده' : 'کاربر عادی');
         el('user-avatar').textContent = data.username[0].toUpperCase();
-        if (data.role === 'admin') { el('nav-users').style.display = 'flex'; el('nav-backup').style.display = 'flex'; el('nav-options').style.display = 'flex'; el('nav-audit').style.display = 'flex'; }
+        if (hasPerm(currentUserPermissions, 'users:view')) el('nav-users').style.display = 'flex';
+        if (hasPerm(currentUserPermissions, 'backup:view')) el('nav-backup').style.display = 'flex';
+        if (hasPerm(currentUserPermissions, 'options:view')) el('nav-options').style.display = 'flex';
+        if (hasPerm(currentUserPermissions, 'audit:view')) el('nav-audit').style.display = 'flex';
         _showPage('dashboard');
         updateClock(); loadDashboard(); _startSessionTimer(); loadAllOptions();
     } catch (e) { errEl.textContent = e.message; errEl.style.display = 'block'; }
@@ -493,7 +502,7 @@ el('username').addEventListener('keydown', e => { if (e.key === 'Enter') el('pas
 // ===== LOGOUT =====
 function doLogout() {
     clearTimeout(_sessionTimer); clearTimeout(_warningTimer);
-    clearToken(); currentUserRole = 'user'; currentUsername = ''; allPersonnel = []; allMissions = []; personnelCache = [];
+    clearToken(); currentUserRole = 'user'; currentUsername = ''; currentUserPermissions = []; allPersonnel = []; allMissions = []; personnelCache = [];
     el('dashboard-page').style.display = 'none';
     el('login-page').style.display = 'flex';
     el('username').value = ''; el('password').value = '';
@@ -841,7 +850,61 @@ function toggleUserForm() {
     el('pw-label').innerHTML = 'رمز عبور <span class="req">*</span>';
     el('pw-strength').style.display = 'none';
     el('btn-save-user').innerHTML = '💾 ذخیره';
+    el('permission-matrix').style.display = 'none';
     card.classList.remove('collapsed');
+    _initPermissionMatrix();
+}
+
+function _initPermissionMatrix() {
+    const container = el('permission-groups');
+    if (!container) return;
+    const modules = [
+        { key: 'dashboard', label: 'داشبورد', perms: ['view'] },
+        { key: 'personnel', label: 'مدیریت پرسنل', perms: ['view', 'create', 'edit', 'delete'] },
+        { key: 'missions', label: 'صدور ماموریت', perms: ['view', 'create', 'edit', 'delete'] },
+        { key: 'reports', label: 'گزارش‌گیری', perms: ['view'] },
+        { key: 'backup', label: 'پشتیبان‌گیری', perms: ['view', 'create', 'delete'] },
+        { key: 'users', label: 'کاربران سیستم', perms: ['view', 'create', 'edit', 'delete'] },
+        { key: 'options', label: 'گزینه‌های سیستم', perms: ['view', 'edit'] },
+        { key: 'audit', label: 'لاگ فعالیت‌ها', perms: ['view'] },
+        { key: 'ai_chat', label: 'دستیار هوشمند', perms: ['view'] }
+    ];
+    container.innerHTML = modules.map(m => `
+        <div class="permission-group">
+            <div class="permission-group-title">${m.label}</div>
+            <div class="permission-group-actions">
+                ${m.perms.map(a => `
+                    <label class="permission-check">
+                        <input type="checkbox" data-module="${m.key}" data-action="${a}" value="${m.key}:${a}">
+                        <span>${a === 'view' ? 'مشاهده' : a === 'create' ? 'ایجاد' : a === 'edit' ? 'ویرایش' : 'حذف'}</span>
+                    </label>
+                `).join('')}
+            </div>
+        </div>
+    `).join('');
+}
+
+function togglePermissionMatrix() {
+    const role = el('newRole').value;
+    const matrix = el('permission-matrix');
+    if (role === 'custom') {
+        matrix.style.display = 'block';
+    } else {
+        matrix.style.display = 'none';
+    }
+}
+
+function selectAllPermissions() {
+    el('permission-groups').querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = true);
+}
+
+function deselectAllPermissions() {
+    el('permission-groups').querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = false);
+}
+
+function _getSelectedPermissions() {
+    const checked = el('permission-groups').querySelectorAll('input[type=checkbox]:checked');
+    return Array.from(checked).map(cb => cb.value);
 }
 function closeUserForm() { el('user-form-card').classList.add('collapsed'); _editingUserId = null; }
 
@@ -859,6 +922,19 @@ function editUser(id) {
     el('newPassword').placeholder = 'خالی بگذارید = بدون تغییر';
     el('btn-save-user').innerHTML = '💾 ذخیره تغییرات';
     el('user-form-card').classList.remove('collapsed');
+    
+    _initPermissionMatrix();
+    const matrix = el('permission-matrix');
+    if (u.permissions && u.permissions.length) {
+        el('newRole').value = 'custom';
+        matrix.style.display = 'block';
+        el('permission-groups').querySelectorAll('input[type=checkbox]').forEach(cb => {
+            cb.checked = u.permissions.includes(cb.value);
+        });
+    } else {
+        el('newRole').value = u.role || 'user';
+        matrix.style.display = 'none';
+    }
 }
 
 async function saveUser() {
@@ -866,18 +942,25 @@ async function saveUser() {
     const password = el('newPassword').value;
     const role = el('newRole').value;
     const status = el('newStatus').value;
+    const useCustomPerms = role === 'custom';
+    const permissions = useCustomPerms ? _getSelectedPermissions() : undefined;
     if (!username) { showToast('نام کاربری الزامی است', 'error'); return; }
     if (!_editingUserId && !password) { showToast('رمز عبور الزامی است', 'error'); return; }
     if (username.length < 3) { showToast('نام کاربری باید حداقل ۳ کاراکتر باشد', 'error'); return; }
     if (!/^[a-zA-Z0-9_]+$/.test(username)) { showToast('نام کاربری فقط شامل حروف، اعداد و زیرخط باشد', 'error'); return; }
     if (password && password.length < 4) { showToast('رمز عبور باید حداقل ۴ کاراکتر باشد', 'error'); return; }
+    if (useCustomPerms && !permissions.length) { showToast('حداقل یک دسترسی انتخاب کنید', 'error'); return; }
     try {
         if (_editingUserId) {
-            await api('/api/users/' + _editingUserId, { method: 'PUT', body: JSON.stringify({ username, role, status }) });
+            const body = { username, role: useCustomPerms ? 'custom' : role, status };
+            if (permissions) body.permissions = permissions;
+            await api('/api/users/' + _editingUserId, { method: 'PUT', body: JSON.stringify(body) });
             if (password) await api('/api/users/' + _editingUserId + '/password', { method: 'PUT', body: JSON.stringify({ password }) });
             showToast('کاربر ویرایش شد', 'success');
         } else {
-            await api('/api/users', { method: 'POST', body: JSON.stringify({ username, password, role }) });
+            const body = { username, password, role: useCustomPerms ? 'custom' : role };
+            if (permissions) body.permissions = permissions;
+            await api('/api/users', { method: 'POST', body: JSON.stringify(body) });
             showToast('کاربر اضافه شد', 'success');
         }
         closeUserForm(); loadUsers();
@@ -1034,7 +1117,7 @@ function _renderPersonnelTable(list) {
                 <div class="action-btns">
                     <button class="btn-xs btn-view" onclick="viewPer(${p.id})">جزئیات</button>
                     <button class="btn-xs btn-edit" onclick="editPer(${p.id})">ویرایش</button>
-                    ${currentUserRole === 'admin' ? `<button class="btn-xs btn-delete" onclick="deletePer(${p.id})">حذف</button>` : ''}
+                    ${hasPerm(currentUserPermissions, 'personnel:delete') ? `<button class="btn-xs btn-delete" onclick="deletePer(${p.id})">حذف</button>` : ''}
                 </div>
             </td>
         </tr>`).join('');
@@ -1171,7 +1254,7 @@ function _renderMissionsTable(list) {
                 <button class="btn-xs btn-edit" onclick="editMission(${m.id})">ویرایش</button>
                 <button class="btn-xs btn-view" onclick="printMission(${m.id})">🖨️</button>
                 <button class="btn-xs btn-view" onclick="pdfMission(${m.id})" title="PDF">📄</button>
-                ${currentUserRole === 'admin' ? `<button class="btn-xs btn-delete" onclick="deleteMission(${m.id})">حذف</button>` : ''}
+                ${hasPerm(currentUserPermissions, 'missions:delete') ? `<button class="btn-xs btn-delete" onclick="deleteMission(${m.id})">حذف</button>` : ''}
             </div></td>
         </tr>`).join('');
     _createPagination('missions-pagination', list.length, pg.page, pg.size, (p) => { _pagState['mis'] = { page: p, size: pg.size }; _renderMissionsTable(list); });
@@ -2056,7 +2139,7 @@ function exportMissionsToExcel() {
 let _restoreFile = null;
 
 function backupDatabase() {
-    if (currentUserRole !== 'admin') { showToast('فقط مدیر می‌تواند پشتیبان بگیرد', 'error'); return; }
+    if (!hasPerm(currentUserPermissions, 'backup:create')) { showToast('فقط مدیر می‌تواند پشتیبان بگیرد', 'error'); return; }
     const now = new Date();
     const pad = n => String(n).padStart(2, '0');
     const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
@@ -2119,7 +2202,7 @@ function removeRestoreFile() {
 }
 
 async function restoreDatabase() {
-    if (currentUserRole !== 'admin') { showToast('فقط مدیر می‌تواند بازیابی کند', 'error'); return; }
+    if (!hasPerm(currentUserPermissions, 'backup:delete')) { showToast('فقط مدیر می‌تواند بازیابی کند', 'error'); return; }
     if (!_restoreFile) { showToast('فایل پشتیبان را انتخاب کنید', 'error'); return; }
     
     const progress = el('restore-progress');
@@ -2519,13 +2602,16 @@ window.addEventListener('DOMContentLoaded', () => {
         try {
             const payload = JSON.parse(atob(savedToken.split('.')[1]));
             if (payload.exp * 1000 > Date.now()) {
-                currentUserRole = payload.role; currentUsername = payload.username;
+                currentUserRole = payload.role; currentUsername = payload.username; currentUserPermissions = payload.permissions || [];
                 el('login-page').style.display = 'none';
                 el('dashboard-page').style.display = 'flex';
                 el('user-display-name').textContent = payload.username;
-                el('user-display-role').textContent = payload.role === 'admin' ? 'مدیر کل' : 'کاربر عادی';
+                el('user-display-role').textContent = payload.role === 'admin' ? 'مدیر کل' : (payload.role === 'editor' ? 'ویرایشگر' : payload.role === 'operator' ? 'امور ماموریت' : payload.role === 'viewer' ? 'بیننده' : 'کاربر عادی');
                 el('user-avatar').textContent = payload.username[0].toUpperCase();
-                if (payload.role === 'admin') { el('nav-users').style.display = 'flex'; el('nav-backup').style.display = 'flex'; el('nav-options').style.display = 'flex'; el('nav-audit').style.display = 'flex'; }
+                if (hasPerm(currentUserPermissions, 'users:view')) el('nav-users').style.display = 'flex';
+                if (hasPerm(currentUserPermissions, 'backup:view')) el('nav-backup').style.display = 'flex';
+                if (hasPerm(currentUserPermissions, 'options:view')) el('nav-options').style.display = 'flex';
+                if (hasPerm(currentUserPermissions, 'audit:view')) el('nav-audit').style.display = 'flex';
                 loadDashboard(); _startSessionTimer(); loadAllOptions();
             } else { clearToken(); }
         } catch (e) { clearToken(); }

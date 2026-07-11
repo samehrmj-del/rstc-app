@@ -17,6 +17,130 @@ if (!JWT_SECRET) {
     process.exit(1);
 }
 
+// ===== PERMISSION SYSTEM =====
+const MODULES = {
+    DASHBOARD: 'dashboard',
+    PERSONNEL: 'personnel',
+    MISSIONS: 'missions',
+    REPORTS: 'reports',
+    BACKUP: 'backup',
+    USERS: 'users',
+    OPTIONS: 'options',
+    AUDIT: 'audit',
+    AI_CHAT: 'ai_chat'
+};
+
+const ACTIONS = {
+    VIEW: 'view',
+    CREATE: 'create',
+    EDIT: 'edit',
+    DELETE: 'delete'
+};
+
+const PERMISSIONS = {
+    DASHBOARD_VIEW: `${MODULES.DASHBOARD}:${ACTIONS.VIEW}`,
+    PERSONNEL_VIEW: `${MODULES.PERSONNEL}:${ACTIONS.VIEW}`,
+    PERSONNEL_CREATE: `${MODULES.PERSONNEL}:${ACTIONS.CREATE}`,
+    PERSONNEL_EDIT: `${MODULES.PERSONNEL}:${ACTIONS.EDIT}`,
+    PERSONNEL_DELETE: `${MODULES.PERSONNEL}:${ACTIONS.DELETE}`,
+    MISSIONS_VIEW: `${MODULES.MISSIONS}:${ACTIONS.VIEW}`,
+    MISSIONS_CREATE: `${MODULES.MISSIONS}:${ACTIONS.CREATE}`,
+    MISSIONS_EDIT: `${MODULES.MISSIONS}:${ACTIONS.EDIT}`,
+    MISSIONS_DELETE: `${MODULES.MISSIONS}:${ACTIONS.DELETE}`,
+    REPORTS_VIEW: `${MODULES.REPORTS}:${ACTIONS.VIEW}`,
+    BACKUP_VIEW: `${MODULES.BACKUP}:${ACTIONS.VIEW}`,
+    BACKUP_CREATE: `${MODULES.BACKUP}:${ACTIONS.CREATE}`,
+    BACKUP_RESTORE: `${MODULES.BACKUP}:${ACTIONS.DELETE}`,
+    USERS_VIEW: `${MODULES.USERS}:${ACTIONS.VIEW}`,
+    USERS_CREATE: `${MODULES.USERS}:${ACTIONS.CREATE}`,
+    USERS_EDIT: `${MODULES.USERS}:${ACTIONS.EDIT}`,
+    USERS_DELETE: `${MODULES.USERS}:${ACTIONS.DELETE}`,
+    OPTIONS_VIEW: `${MODULES.OPTIONS}:${ACTIONS.VIEW}`,
+    OPTIONS_EDIT: `${MODULES.OPTIONS}:${ACTIONS.EDIT}`,
+    AUDIT_VIEW: `${MODULES.AUDIT}:${ACTIONS.VIEW}`,
+    AI_CHAT_VIEW: `${MODULES.AI_CHAT}:${ACTIONS.VIEW}`
+};
+
+const MODULE_LABELS = {
+    [MODULES.DASHBOARD]: 'داشبورد',
+    [MODULES.PERSONNEL]: 'مدیریت پرسنل',
+    [MODULES.MISSIONS]: 'صدور ماموریت',
+    [MODULES.REPORTS]: 'گزارش‌گیری',
+    [MODULES.BACKUP]: 'پشتیبان‌گیری',
+    [MODULES.USERS]: 'کاربران سیستم',
+    [MODULES.OPTIONS]: 'گزینه‌های سیستم',
+    [MODULES.AUDIT]: 'لاگ فعالیت‌ها',
+    [MODULES.AI_CHAT]: 'دستیار هوشمند'
+};
+
+const ACTION_LABELS = {
+    [ACTIONS.VIEW]: 'مشاهده',
+    [ACTIONS.CREATE]: 'ایجاد',
+    [ACTIONS.EDIT]: 'ویرایش',
+    [ACTIONS.DELETE]: 'حذف'
+};
+
+const ROLE_PERMISSIONS = {
+    admin: Object.values(PERMISSIONS),
+    editor: [
+        PERMISSIONS.DASHBOARD_VIEW,
+        PERMISSIONS.PERSONNEL_VIEW, PERMISSIONS.PERSONNEL_CREATE, PERMISSIONS.PERSONNEL_EDIT,
+        PERMISSIONS.MISSIONS_VIEW, PERMISSIONS.MISSIONS_CREATE, PERMISSIONS.MISSIONS_EDIT,
+        PERMISSIONS.REPORTS_VIEW,
+        PERMISSIONS.AI_CHAT_VIEW
+    ],
+    operator: [
+        PERMISSIONS.DASHBOARD_VIEW,
+        PERMISSIONS.MISSIONS_VIEW, PERMISSIONS.MISSIONS_CREATE, PERMISSIONS.MISSIONS_EDIT,
+        PERMISSIONS.REPORTS_VIEW,
+        PERMISSIONS.AI_CHAT_VIEW
+    ],
+    viewer: [
+        PERMISSIONS.DASHBOARD_VIEW,
+        PERMISSIONS.PERSONNEL_VIEW,
+        PERMISSIONS.MISSIONS_VIEW,
+        PERMISSIONS.REPORTS_VIEW,
+        PERMISSIONS.AI_CHAT_VIEW
+    ]
+};
+
+function getDefaultPermissions(role) {
+    return ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.viewer;
+}
+
+function hasPermission(user, permission) {
+    if (!user || !user.permissions) return false;
+    if (user.role === 'admin') return true;
+    return user.permissions.includes(permission);
+}
+
+function requirePermission(permission) {
+    return (req, res, next) => {
+        if (!req.user) return res.status(401).json({ error: 'احراز هویت الزامی است' });
+        if (hasPermission(req.user, permission)) return next();
+        return res.status(403).json({ error: 'دسترسی غیرمجاز' });
+    };
+}
+
+function getPermissionsForModule(user, module) {
+    if (!user || !user.permissions) return [];
+    const prefix = module + ':';
+    return user.permissions.filter(p => p.startsWith(prefix));
+}
+
+function serializePermissions(permsArray) {
+    return JSON.stringify(permsArray || []);
+}
+
+function deserializePermissions(str) {
+    try {
+        const arr = JSON.parse(str || '[]');
+        return Array.isArray(arr) ? arr : [];
+    } catch {
+        return [];
+    }
+}
+
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
@@ -87,11 +211,26 @@ function authenticateToken(req, res, next) {
     if (!token) return res.status(401).json({ error: 'دسترسی غیرمجاز! لطفاً ابتدا وارد شوید.' });
     jwt.verify(token, JWT_SECRET, (err, user) => {
         if (err) return res.status(403).json({ error: 'توکن نامعتبر یا منقضی شده است.' });
+        if (!user.permissions || !Array.isArray(user.permissions)) {
+            dbGet("SELECT permissions FROM Users WHERE id = ?", [user.id]).then(dbUser => {
+                user.permissions = deserializePermissions(dbUser && dbUser.permissions ? dbUser.permissions : null);
+                req.user = user;
+                next();
+            }).catch(() => {
+                req.user = user;
+                next();
+            });
+            return;
+        }
         req.user = user;
         next();
     });
 }
 function requireAdmin(req, res, next) {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'این عملیات فقط برای مدیر کل مجاز است.' });
+    next();
+}
+function requireSuperAdmin(req, res, next) {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'این عملیات فقط برای مدیر کل مجاز است.' });
     next();
 }
@@ -123,13 +262,15 @@ function auditMiddleware(entity) {
 // ===== INIT DB =====
 async function initializeDatabase() {
     try {
-        await dbRun("CREATE TABLE IF NOT EXISTS Users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, role TEXT DEFAULT 'user', status TEXT DEFAULT 'active', last_login TEXT, login_count INTEGER DEFAULT 0, created_at TEXT)");
+        await dbRun("CREATE TABLE IF NOT EXISTS Users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, role TEXT DEFAULT 'user', permissions TEXT DEFAULT '[]', status TEXT DEFAULT 'active', last_login TEXT, login_count INTEGER DEFAULT 0, created_at TEXT)");
         await dbRun("ALTER TABLE Users ADD COLUMN role TEXT DEFAULT 'user'").catch(() => {});
+        await dbRun("ALTER TABLE Users ADD COLUMN permissions TEXT DEFAULT '[]'").catch(() => {});
         await dbRun("ALTER TABLE Users ADD COLUMN last_login TEXT").catch(() => {});
         await dbRun("ALTER TABLE Users ADD COLUMN login_count INTEGER DEFAULT 0").catch(() => {});
         await dbRun("ALTER TABLE Users ADD COLUMN status TEXT DEFAULT 'active'").catch(() => {});
         await dbRun("ALTER TABLE Users ADD COLUMN created_at TEXT").catch(() => {});
         await dbRun("UPDATE Users SET created_at = '2026-01-01T00:00:00.000Z' WHERE created_at IS NULL").catch(() => {});
+        await dbRun("UPDATE Users SET permissions = ? WHERE permissions IS NULL OR permissions = ''", [serializePermissions(getDefaultPermissions('user'))]).catch(() => {});
 
         await dbRun(`CREATE TABLE IF NOT EXISTS Personnel (
             id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, lname TEXT NOT NULL,
@@ -270,8 +411,9 @@ app.post('/api/login', rateLimitLogin, async (req, res) => {
         loginAttempts.delete(ip);
         const now = new Date().toISOString();
         await dbRun("UPDATE Users SET last_login = ?, login_count = login_count + 1 WHERE id = ?", [now, user.id]);
-        const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '8h' });
-        res.json({ success: true, token, role: user.role, username: user.username });
+        const permissions = deserializePermissions(user.permissions);
+        const token = jwt.sign({ id: user.id, username: user.username, role: user.role, permissions }, JWT_SECRET, { expiresIn: '8h' });
+        res.json({ success: true, token, role: user.role, username: user.username, permissions });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -320,30 +462,37 @@ app.put('/api/users/self/self-password', authenticateToken, async (req, res) => 
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/api/users', authenticateToken, requireAdmin, async (req, res) => {
-    try { res.json(await dbAll("SELECT id, username, role, status, last_login, login_count, created_at FROM Users ORDER BY id")); }
+app.get('/api/users', authenticateToken, requirePermission(PERMISSIONS.USERS_VIEW), async (req, res) => {
+    try { res.json(await dbAll("SELECT id, username, role, permissions, status, last_login, login_count, created_at FROM Users ORDER BY id")); }
     catch (e) { res.status(500).json({ error: e.message }); }
 });
-app.post('/api/users', authenticateToken, requireAdmin, auditMiddleware('User'), async (req, res) => {
+app.post('/api/users', authenticateToken, requirePermission(PERMISSIONS.USERS_CREATE), auditMiddleware('User'), async (req, res) => {
     try {
-        const { username, password, role } = req.body;
+        const { username, password, role, permissions } = req.body;
         if (!username || !password) return res.status(400).json({ error: "نام کاربری و رمز عبور الزامی است!" });
         if (username.length < 3) return res.status(400).json({ error: "نام کاربری باید حداقل ۳ کاراکتر باشد." });
         if (!/^[a-zA-Z0-9_]+$/.test(username)) return res.status(400).json({ error: "نام کاربری فقط شامل حروف، اعداد و زیرخط باشد." });
         if (password.length < 4) return res.status(400).json({ error: "رمز عبور باید حداقل ۴ کاراکتر باشد." });
-        await dbRun("INSERT INTO Users (username, password, role, status, created_at) VALUES (?, ?, ?, ?, ?)", [username, await hashPassword(password), role || 'user', 'active', new Date().toISOString()]);
+        const finalPerms = Array.isArray(permissions)
+            ? permissions
+            : getDefaultPermissions(role || 'user');
+        await dbRun("INSERT INTO Users (username, password, role, permissions, status, created_at) VALUES (?, ?, ?, ?, ?, ?)", [username, await hashPassword(password), role || 'user', serializePermissions(finalPerms), 'active', new Date().toISOString()]);
         res.json({ success: true });
     } catch (e) {
         if (e.message.includes('UNIQUE')) return res.status(400).json({ error: "این نام کاربری قبلاً ثبت شده است!" });
         res.status(500).json({ error: e.message });
     }
 });
-app.put('/api/users/:id', authenticateToken, requireAdmin, auditMiddleware('User'), async (req, res) => {
+app.put('/api/users/:id', authenticateToken, requirePermission(PERMISSIONS.USERS_EDIT), auditMiddleware('User'), async (req, res) => {
     try {
-        const { username, role, status } = req.body;
+        const { username, role, status, permissions } = req.body;
         const userId = parseInt(req.params.id);
         if (userId === 1 && status === 'disabled') return res.status(400).json({ error: "کاربر اصلی قابل غیرفعال کردن نیست!" });
         if (userId === 1 && role !== 'admin') return res.status(400).json({ error: "نقش کاربر اصلی قابل تغییر نیست!" });
+        const targetUser = await dbGet("SELECT * FROM Users WHERE id = ?", [userId]);
+        if (!targetUser) return res.status(404).json({ error: "کاربر یافت نشد!" });
+        const isTargetAdmin = targetUser.role === 'admin';
+        if (isTargetAdmin && role && role !== 'admin') return res.status(400).json({ error: "نقش ادمین قابل تغییر نیست!" });
         if (username) {
             if (username.length < 3) return res.status(400).json({ error: "نام کاربری باید حداقل ۳ کاراکتر باشد." });
             if (!/^[a-zA-Z0-9_]+$/.test(username)) return res.status(400).json({ error: "نام کاربری فقط شامل حروف، اعداد و زیرخط باشد." });
@@ -351,8 +500,12 @@ app.put('/api/users/:id', authenticateToken, requireAdmin, auditMiddleware('User
         const updates = [];
         const params = [];
         if (username) { updates.push("username = ?"); params.push(username); }
-        if (role) { updates.push("role = ?"); params.push(role); }
+        if (role && !isTargetAdmin) { updates.push("role = ?"); params.push(role); }
         if (status) { updates.push("status = ?"); params.push(status); }
+        if (permissions !== undefined) {
+            updates.push("permissions = ?");
+            params.push(serializePermissions(Array.isArray(permissions) ? permissions : getDefaultPermissions(role || targetUser.role)));
+        }
         if (!updates.length) return res.status(400).json({ error: "تغییری اعمال نشد!" });
         params.push(userId);
         await dbRun(`UPDATE Users SET ${updates.join(', ')} WHERE id = ?`, params);
@@ -362,7 +515,7 @@ app.put('/api/users/:id', authenticateToken, requireAdmin, auditMiddleware('User
         res.status(500).json({ error: e.message });
     }
 });
-app.put('/api/users/:id/password', authenticateToken, requireAdmin, async (req, res) => {
+app.put('/api/users/:id/password', authenticateToken, requirePermission(PERMISSIONS.USERS_EDIT), async (req, res) => {
     try {
         const { password } = req.body;
         if (!password) return res.status(400).json({ error: "رمز عبور جدید الزامی است!" });
@@ -371,7 +524,7 @@ app.put('/api/users/:id/password', authenticateToken, requireAdmin, async (req, 
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
-app.delete('/api/users/:id', authenticateToken, requireAdmin, auditMiddleware('User'), async (req, res) => {
+app.delete('/api/users/:id', authenticateToken, requirePermission(PERMISSIONS.USERS_DELETE), auditMiddleware('User'), async (req, res) => {
     try {
         if (parseInt(req.params.id) === 1) return res.status(400).json({ error: "کاربر اصلی قابل حذف نیست!" });
         await dbRun("DELETE FROM Users WHERE id = ?", [req.params.id]);
@@ -417,7 +570,7 @@ function validatePersonnel(body) {
 }
 
 // ===== PERSONNEL CRUD =====
-app.post('/api/personnel', authenticateToken, auditMiddleware('Personnel'), async (req, res) => {
+app.post('/api/personnel', authenticateToken, requirePermission(PERMISSIONS.PERSONNEL_CREATE), auditMiddleware('Personnel'), async (req, res) => {
     try {
         const errs = validatePersonnel(req.body);
         if (errs.length) return res.status(400).json({ error: errs.join(' | ') });
@@ -431,11 +584,11 @@ app.post('/api/personnel', authenticateToken, auditMiddleware('Personnel'), asyn
         res.status(400).json({ error: e.message });
     }
 });
-app.get('/api/personnel', authenticateToken, async (req, res) => {
+app.get('/api/personnel', authenticateToken, requirePermission(PERMISSIONS.PERSONNEL_VIEW), async (req, res) => {
     try { res.json(await dbAll("SELECT * FROM Personnel ORDER BY id DESC")); }
     catch (e) { res.status(500).json({ error: e.message }); }
 });
-app.put('/api/personnel/:id', authenticateToken, auditMiddleware('Personnel'), async (req, res) => {
+app.put('/api/personnel/:id', authenticateToken, requirePermission(PERMISSIONS.PERSONNEL_EDIT), auditMiddleware('Personnel'), async (req, res) => {
     try {
         const errs = validatePersonnel(req.body);
         if (errs.length) return res.status(400).json({ error: errs.join(' | ') });
@@ -449,7 +602,7 @@ app.put('/api/personnel/:id', authenticateToken, auditMiddleware('Personnel'), a
         res.status(400).json({ error: e.message });
     }
 });
-app.delete('/api/personnel/:id', authenticateToken, requireAdmin, auditMiddleware('Personnel'), async (req, res) => {
+app.delete('/api/personnel/:id', authenticateToken, requirePermission(PERMISSIONS.PERSONNEL_DELETE), auditMiddleware('Personnel'), async (req, res) => {
     try { await dbRun("DELETE FROM Personnel WHERE id = ?", [req.params.id]); res.json({ success: true }); }
     catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -525,7 +678,7 @@ async function generateDecreeNum() {
 
 function toJalaali(gy,gm,gd){var g_d_m=[0,31,59,90,120,151,181,212,243,273,304,334];var jy=(gy<=1600)?0:979;gy-=(gy<=1600)?621:1600;var gy2=(gm>2)?(gy+1):gy;var days=365*gy+Math.floor((gy2+3)/4)-Math.floor((gy2+99)/100)+Math.floor((gy2+399)/400)-80+gd+g_d_m[gm-1];jy+=33*Math.floor(days/12053);days%=12053;jy+=4*Math.floor(days/1461);days%=1461;if(days>365){jy+=Math.floor((days-1)/365);days=(days-1)%365;}var jm=(days<186)?1+Math.floor(days/31):7+Math.floor((days-186)/30);var jd=1+((days<186)?(days%31):((days-186)%30));return{jy,jm,jd};}
 
-app.post('/api/missions', authenticateToken, auditMiddleware('Mission'), async (req, res) => {
+app.post('/api/missions', authenticateToken, requirePermission(PERMISSIONS.MISSIONS_CREATE), auditMiddleware('Mission'), async (req, res) => {
     try {
         const { name, start_date, end_date, issue_date } = req.body;
         if (!name || !start_date || !end_date || !issue_date)
@@ -541,14 +694,14 @@ app.post('/api/missions', authenticateToken, auditMiddleware('Mission'), async (
     }
 });
 
-app.get('/api/missions', authenticateToken, async (req, res) => {
+app.get('/api/missions', authenticateToken, requirePermission(PERMISSIONS.MISSIONS_VIEW), async (req, res) => {
     try {
         // ✅ BUG FIX: بدون JOIN چون مستقیم name/lname ذخیره شده
         res.json(await dbAll("SELECT * FROM Missions ORDER BY id DESC"));
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.put('/api/missions/:id', authenticateToken, auditMiddleware('Mission'), async (req, res) => {
+app.put('/api/missions/:id', authenticateToken, requirePermission(PERMISSIONS.MISSIONS_EDIT), auditMiddleware('Mission'), async (req, res) => {
     try {
         const { name, start_date, end_date, issue_date } = req.body;
         if (!name || !start_date || !end_date || !issue_date)
@@ -563,7 +716,7 @@ app.put('/api/missions/:id', authenticateToken, auditMiddleware('Mission'), asyn
     }
 });
 
-app.delete('/api/missions/:id', authenticateToken, requireAdmin, auditMiddleware('Mission'), async (req, res) => {
+app.delete('/api/missions/:id', authenticateToken, requirePermission(PERMISSIONS.MISSIONS_DELETE), auditMiddleware('Mission'), async (req, res) => {
     try { await dbRun("DELETE FROM Missions WHERE id = ?", [req.params.id]); res.json({ success: true }); }
     catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -598,8 +751,7 @@ app.post('/api/reports/missions', authenticateToken, async (req, res) => {
 // ===== BACKUP =====
 const fs = require('fs');
 
-app.get('/api/backup', authenticateToken, (req, res) => {
-    if (req.user.role !== 'admin') return res.status(403).json({ error: 'دسترسی غیرمجاز' });
+app.get('/api/backup', authenticateToken, requirePermission(PERMISSIONS.BACKUP_CREATE), (req, res) => {
     const dbPath = path.resolve(DB_PATH);
     if (!fs.existsSync(dbPath)) return res.status(404).json({ error: 'فایل دیتابیس یافت نشد' });
     try { db.pragma('wal_checkpoint(TRUNCATE)'); } catch (e) { console.error('Checkpoint warning:', e.message); }
@@ -609,8 +761,7 @@ app.get('/api/backup', authenticateToken, (req, res) => {
     fs.createReadStream(dbPath).pipe(res);
 });
 
-app.get('/api/backups', authenticateToken, (req, res) => {
-    if (req.user.role !== 'admin') return res.status(403).json({ error: 'دسترسی غیرمجاز' });
+app.get('/api/backups', authenticateToken, requirePermission(PERMISSIONS.BACKUP_VIEW), (req, res) => {
     try {
         if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true });
         const files = fs.readdirSync(BACKUP_DIR).filter(f => f.endsWith('.db'));
@@ -630,8 +781,7 @@ app.get('/api/backups', authenticateToken, (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/api/backups/:name', authenticateToken, (req, res) => {
-    if (req.user.role !== 'admin') return res.status(403).json({ error: 'دسترسی غیرمجاز' });
+app.get('/api/backups/:name', authenticateToken, requirePermission(PERMISSIONS.BACKUP_VIEW), (req, res) => {
     const fp = path.join(BACKUP_DIR, req.params.name);
     if (!fs.existsSync(fp)) return res.status(404).json({ error: 'فایل پشتیبان یافت نشد' });
     res.setHeader('Content-Disposition', `attachment; filename=${req.params.name}`);
@@ -639,8 +789,7 @@ app.get('/api/backups/:name', authenticateToken, (req, res) => {
     fs.createReadStream(fp).pipe(res);
 });
 
-app.post('/api/backups/validate', authenticateToken, express.raw({ type: 'application/octet-stream', limit: '50mb' }), (req, res) => {
-    if (req.user.role !== 'admin') return res.status(403).json({ error: 'دسترسی غیرمجاز' });
+app.post('/api/backups/validate', authenticateToken, express.raw({ type: 'application/octet-stream', limit: '50mb' }), requirePermission(PERMISSIONS.BACKUP_VIEW), (req, res) => {
     try {
         const tmp = path.join(BACKUP_DIR, 'tmp_validate_' + Date.now() + '.db');
         fs.writeFileSync(tmp, req.body);
@@ -671,8 +820,7 @@ app.post('/api/backups/validate', authenticateToken, express.raw({ type: 'applic
     }
 });
 
-app.delete('/api/backups/:name', authenticateToken, (req, res) => {
-    if (req.user.role !== 'admin') return res.status(403).json({ error: 'دسترسی غیرمجاز' });
+app.delete('/api/backups/:name', authenticateToken, requirePermission(PERMISSIONS.BACKUP_VIEW), (req, res) => {
     try {
         const fp = path.join(BACKUP_DIR, req.params.name);
         if (!fs.existsSync(fp)) return res.status(404).json({ error: 'فایل پشتیبان یافت نشد' });
@@ -681,8 +829,7 @@ app.delete('/api/backups/:name', authenticateToken, (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post('/api/restore', authenticateToken, express.raw({ type: 'application/octet-stream', limit: '50mb' }), (req, res) => {
-    if (req.user.role !== 'admin') return res.status(403).json({ error: 'دسترسی غیرمجاز' });
+app.post('/api/restore', authenticateToken, express.raw({ type: 'application/octet-stream', limit: '50mb' }), requirePermission(PERMISSIONS.BACKUP_RESTORE), (req, res) => {
     try {
         const dbPath = path.resolve(DB_PATH);
         const backupPath = dbPath + '.bak';
@@ -728,8 +875,7 @@ app.get('/api/options/:field', authenticateToken, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post('/api/options/:field', authenticateToken, auditMiddleware('Option'), async (req, res) => {
-    if (req.user.role !== 'admin') return res.status(403).json({ error: 'دسترسی غیرمجاز' });
+app.post('/api/options/:field', authenticateToken, auditMiddleware('Option'), requirePermission(PERMISSIONS.OPTIONS_EDIT), async (req, res) => {
     try {
         const { field } = req.params;
         const { label, value } = req.body;
@@ -743,8 +889,7 @@ app.post('/api/options/:field', authenticateToken, auditMiddleware('Option'), as
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.put('/api/options/:field', authenticateToken, auditMiddleware('Option'), async (req, res) => {
-    if (req.user.role !== 'admin') return res.status(403).json({ error: 'دسترسی غیرمجاز' });
+app.put('/api/options/:field', authenticateToken, auditMiddleware('Option'), requirePermission(PERMISSIONS.OPTIONS_EDIT), async (req, res) => {
     try {
         const { field } = req.params;
         const { oldValue, newValue, label } = req.body;
@@ -763,8 +908,7 @@ app.put('/api/options/:field', authenticateToken, auditMiddleware('Option'), asy
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.delete('/api/options/:field/:index', authenticateToken, auditMiddleware('Option'), async (req, res) => {
-    if (req.user.role !== 'admin') return res.status(403).json({ error: 'دسترسی غیرمجاز' });
+app.delete('/api/options/:field/:index', authenticateToken, auditMiddleware('Option'), requirePermission(PERMISSIONS.OPTIONS_EDIT), async (req, res) => {
     try {
         const { field, index } = req.params;
         const all = await readOptions();
@@ -778,7 +922,7 @@ app.delete('/api/options/:field/:index', authenticateToken, auditMiddleware('Opt
 });
 
 // ===== AUDIT LOG API =====
-app.get('/api/audit', authenticateToken, requireAdmin, async (req, res) => {
+app.get('/api/audit', authenticateToken, requirePermission(PERMISSIONS.AUDIT_VIEW), async (req, res) => {
     try {
         const { entity, username, limit: lim } = req.query || {};
         const conditions = [], params = [];
