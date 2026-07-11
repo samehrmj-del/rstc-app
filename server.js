@@ -270,7 +270,11 @@ async function initializeDatabase() {
         await dbRun("ALTER TABLE Users ADD COLUMN status TEXT DEFAULT 'active'").catch(() => {});
         await dbRun("ALTER TABLE Users ADD COLUMN created_at TEXT").catch(() => {});
         await dbRun("UPDATE Users SET created_at = '2026-01-01T00:00:00.000Z' WHERE created_at IS NULL").catch(() => {});
-        await dbRun("UPDATE Users SET permissions = ? WHERE permissions IS NULL OR permissions = ''", [serializePermissions(getDefaultPermissions('user'))]).catch(() => {});
+        const usersWithoutPerms = await dbAll("SELECT id, role, permissions FROM Users WHERE permissions IS NULL OR permissions = '' OR permissions = '[]'").catch(() => []);
+        for (const u of usersWithoutPerms) {
+            const defaultPerms = getDefaultPermissions(u.role);
+            await dbRun("UPDATE Users SET permissions = ? WHERE id = ?", [serializePermissions(defaultPerms), u.id]).catch(() => {});
+        }
 
         await dbRun(`CREATE TABLE IF NOT EXISTS Personnel (
             id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, lname TEXT NOT NULL,
