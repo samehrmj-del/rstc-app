@@ -1339,25 +1339,30 @@
 
 <!-- Chat Widget -->
 <div id="chat-widget" class="chat-widget">
-    <div class="chat-header" onclick="toggleChat()">
-        <span class="chat-title">💬 پیام‌رسانی</span>
-        <span class="chat-badge" id="chat-badge" style="display:none;">0</span>
-        <button class="chat-close" onclick="event.stopPropagation(); toggleChat()">✕</button>
+  <div class="chat-panel" id="chat-panel">
+    <div class="chat-header">
+      <span class="chat-title">💬 پیام‌رسانی</span>
+      <button class="chat-close" onclick="toggleChat()">✕</button>
     </div>
-    <div class="chat-body" id="chat-body">
-        <div class="chat-sidebar" id="chat-sidebar">
-            <div class="chat-sidebar-header">گفتگوها</div>
-            <div class="chat-user-list" id="chat-user-list"></div>
+    <div class="chat-body">
+      <div class="chat-sidebar">
+        <div class="chat-sidebar-header">گفتگوها</div>
+        <div class="chat-user-list" id="chat-user-list"></div>
+      </div>
+      <div class="chat-main">
+        <div class="chat-placeholder" id="chat-placeholder">یک گفتگو را انتخاب کنید</div>
+        <div class="chat-messages" id="chat-messages" style="display:none;"></div>
+        <div class="chat-input-area" id="chat-input-area" style="display:none;">
+          <textarea id="chat-message-input" placeholder="پیام خود را بنویسید..." rows="2"></textarea>
+          <button class="chat-send-btn" onclick="sendChatMessage()">ارسال</button>
         </div>
-        <div class="chat-main" id="chat-main">
-            <div class="chat-placeholder" id="chat-placeholder">یک گفتگو را انتخاب کنید</div>
-            <div class="chat-messages" id="chat-messages" style="display:none;"></div>
-            <div class="chat-input-area" id="chat-input-area" style="display:none;">
-                <textarea id="chat-message-input" placeholder="پیام خود را بنویسید..." rows="2"></textarea>
-                <button class="chat-send-btn" onclick="sendChatMessage()">ارسال</button>
-            </div>
-        </div>
+      </div>
     </div>
+  </div>
+  <button class="chat-fab" id="chat-fab" onclick="toggleChat()">
+    <span class="chat-fab-icon">💬</span>
+    <span class="chat-badge" id="chat-badge" style="display:none;">0</span>
+  </button>
 </div>
 
 </body>

@@ -531,7 +531,7 @@ async function doLogin() {
         const aiWidget = el('ai-chat-widget');
         if (aiWidget) aiWidget.style.display = hasPerm(currentUserPermissions, 'ai_chat:view') ? 'flex' : 'none';
         _showPage('dashboard');
-        updateClock(); loadDashboard(); _startSessionTimer(); loadAllOptions(); checkAnnouncement(); requestNotificationPermission(); checkUnreadChat();
+        updateClock(); loadDashboard(); _startSessionTimer(); loadAllOptions(); checkAnnouncement(); requestNotificationPermission(); Chat.init();
     } catch (e) { errEl.textContent = e.message; errEl.style.display = 'block'; }
     _setLoginButtonState(false);
 }
@@ -549,8 +549,7 @@ function doLogout() {
     el('username').value = ''; el('password').value = '';
     el('login-error').style.display = 'none';
     el('nav-users').style.display = 'none'; el('nav-backup').style.display = 'none'; el('nav-options').style.display = 'none'; el('nav-audit').style.display = 'none'; const chatNav = el('nav-chat'); if (chatNav) chatNav.style.display = 'none';
-    const chatWidget = el('chat-widget'); if (chatWidget) chatWidget.classList.remove('chat-open');
-    _chatOpen = false; stopChatPolling();
+    Chat.close();
 }
 
 // ===== OPTIONS MANAGEMENT =====
@@ -746,133 +745,148 @@ function sendBrowserNotification(title, body, icon) {
 }
 
 // ===== CHAT =====
-let _chatOpen = false;
-let _chatUserId = null;
-let _chatUserName = null;
-let _chatPollId = null;
+const Chat = {
+    open: false,
+    selectedUserId: null,
+    selectedUserName: null,
+    pollId: null,
+    users: [],
 
-function openChat() {
-    _chatOpen = true;
-    el('chat-widget').classList.add('chat-open');
-    el('nav-chat').classList.add('active');
-    loadChatUsers();
-    startChatPolling();
-}
+    init() {
+        const fab = el('chat-fab');
+        const panel = el('chat-panel');
+        if (!fab || !panel) return;
+        fab.addEventListener('click', () => this.toggle());
+        el('chat-close').addEventListener('click', () => this.close());
+        el('chat-message-input').addEventListener('keydown', e => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.send(); }
+        });
+    },
 
-function toggleChat() {
-    const widget = el('chat-widget');
-    if (!widget.classList.contains('chat-open')) {
-        _chatOpen = true;
-        widget.classList.add('chat-open');
-        el('nav-chat').classList.add('active');
-        loadChatUsers();
-        startChatPolling();
-    } else {
-        _chatOpen = false;
-        widget.classList.remove('chat-open');
-        el('nav-chat').classList.remove('active');
-        stopChatPolling();
-    }
-}
+    toggle() {
+        this.open ? this.close() : this.openPanel();
+    },
 
-async function loadChatUsers() {
-    try {
-        const data = await api('/api/chat/users');
+    openPanel() {
+        this.open = true;
+        el('chat-widget').classList.add('chat-open');
+        this.loadUsers();
+        this.startPolling();
+    },
+
+    close() {
+        this.open = false;
+        el('chat-widget').classList.remove('chat-open');
+        this.stopPolling();
+    },
+
+    async loadUsers() {
+        try {
+            const data = await api('/api/chat/users');
+            this.users = data.users || [];
+            this.renderUsers();
+        } catch (e) {
+            console.error('Chat users load failed:', e);
+        }
+    },
+
+    renderUsers() {
         const list = el('chat-user-list');
-        if (!data.users || !data.users.length) {
+        if (!this.users.length) {
             list.innerHTML = '<div style="padding:12px;color:var(--text-muted);font-size:12px;text-align:center;">کاربری یافت نشد</div>';
             return;
         }
-        list.innerHTML = data.users.map(u => `
-            <div class="chat-user-item ${_chatUserId === u.id ? 'active' : ''}" onclick="selectChatUser(${u.id}, '${_esc(u.username)}')">
+        list.innerHTML = this.users.map(u => `
+            <div class="chat-user-item ${this.selectedUserId === u.id ? 'active' : ''}" data-uid="${u.id}">
                 <div class="chat-user-avatar">${u.username[0].toUpperCase()}</div>
                 <div class="chat-user-name">${_esc(u.username)}</div>
             </div>
         `).join('');
-    } catch (e) {
-        console.error('loadChatUsers failed:', e);
-    }
-}
+        list.querySelectorAll('.chat-user-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const uid = parseInt(item.dataset.uid);
+                const user = this.users.find(u => u.id === uid);
+                if (user) this.selectUser(uid, user.username);
+            });
+        });
+    },
 
-async function selectChatUser(userId, userName) {
-    _chatUserId = userId;
-    _chatUserName = userName;
-    el('chat-placeholder').style.display = 'none';
-    el('chat-messages').style.display = 'flex';
-    el('chat-input-area').style.display = 'flex';
-    document.querySelector('.chat-user-item.active')?.classList.remove('active');
-    event.currentTarget.classList.add('active');
-    await loadChatMessages(userId);
-}
+    selectUser(userId, userName) {
+        this.selectedUserId = userId;
+        this.selectedUserName = userName;
+        el('chat-placeholder').style.display = 'none';
+        el('chat-messages').style.display = 'flex';
+        el('chat-input-area').style.display = 'flex';
+        this.renderUsers();
+        this.loadMessages(userId);
+    },
 
-async function loadChatMessages(userId) {
-    try {
-        const data = await api(`/api/chat/messages?userId=${userId}`);
-        const container = el('chat-messages');
-        if (!data.messages || !data.messages.length) {
-            container.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-size:12px;padding:20px;">هنوز پیامی تبادل نشده</div>';
-            return;
+    async loadMessages(userId) {
+        try {
+            const data = await api(`/api/chat/messages?userId=${userId}`);
+            const container = el('chat-messages');
+            if (!data.messages || !data.messages.length) {
+                container.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-size:12px;padding:20px;">هنوز پیامی تبادل نشده</div>';
+                return;
+            }
+            const myId = this.getMyId();
+            container.innerHTML = data.messages.map(m => {
+                const isMe = m.sender_id === myId;
+                return `<div class="chat-msg ${isMe ? 'sent' : 'received'}">
+                    <div>${_esc(m.message)}</div>
+                    <div class="chat-msg-time">${_formatTime(m.created_at)}</div>
+                </div>`;
+            }).join('');
+            container.scrollTop = container.scrollHeight;
+        } catch (e) {
+            console.error('Chat messages load failed:', e);
         }
-        container.innerHTML = data.messages.map(m => {
-            const isMe = m.sender_id === parseInt(getCurrentUserId());
-            return `<div class="chat-msg ${isMe ? 'sent' : 'received'}">
-                <div>${_esc(m.message)}</div>
-                <div class="chat-msg-time">${_formatTime(m.created_at)}</div>
-            </div>`;
-        }).join('');
-        container.scrollTop = container.scrollHeight;
-    } catch (e) {
-        console.error('loadChatMessages failed:', e);
-    }
-}
+    },
 
-async function sendChatMessage() {
-    const input = el('chat-message-input');
-    const text = input.value.trim();
-    if (!text || !_chatUserId) return;
-    try {
-        await api('/api/chat/send', { method: 'POST', body: JSON.stringify({ receiver_id: _chatUserId, receiver_name: _chatUserName, message: text }) });
-        input.value = '';
-        await loadChatMessages(_chatUserId);
-    } catch (e) {
-        showToast(e.message, 'error');
-    }
-}
-
-el('chat-message-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); }
-});
-
-async function checkUnreadChat() {
-    try {
-        const data = await api('/api/chat/unread-count');
-        const badge = el('chat-badge');
-        if (data.count > 0) {
-            badge.textContent = data.count > 99 ? '99+' : data.count;
-            badge.style.display = 'inline';
-        } else {
-            badge.style.display = 'none';
+    async send() {
+        const input = el('chat-message-input');
+        const text = input.value.trim();
+        if (!text || !this.selectedUserId) return;
+        try {
+            await api('/api/chat/send', { method: 'POST', body: JSON.stringify({ receiver_id: this.selectedUserId, receiver_name: this.selectedUserName, message: text }) });
+            input.value = '';
+            await this.loadMessages(this.selectedUserId);
+        } catch (e) {
+            showToast(e.message, 'error');
         }
-    } catch (e) { console.warn('Unread check failed:', e); }
-}
+    },
 
-function startChatPolling() {
-    stopChatPolling();
-    _chatPollId = setInterval(async () => {
-        await checkUnreadChat();
-        if (_chatOpen && _chatUserId) {
-            await loadChatMessages(_chatUserId);
-        }
-    }, 3000);
-}
+    getMyId() {
+        return (window.currentUser && window.currentUser.id) ? window.currentUser.id : null;
+    },
 
-function stopChatPolling() {
-    if (_chatPollId) { clearInterval(_chatPollId); _chatPollId = null; }
-}
+    async checkUnread() {
+        try {
+            const data = await api('/api/chat/unread-count');
+            const badge = el('chat-badge');
+            if (data.count > 0) {
+                badge.textContent = data.count > 99 ? '99+' : data.count;
+                badge.style.display = 'inline';
+            } else {
+                badge.style.display = 'none';
+            }
+        } catch (e) { console.warn('Unread check failed:', e); }
+    },
 
-function getCurrentUserId() {
-    return (window.currentUser && window.currentUser.id) ? window.currentUser.id : null;
-}
+    startPolling() {
+        this.stopPolling();
+        this.pollId = setInterval(async () => {
+            await this.checkUnread();
+            if (this.open && this.selectedUserId) {
+                await this.loadMessages(this.selectedUserId);
+            }
+        }, 3000);
+    },
+
+    stopPolling() {
+        if (this.pollId) { clearInterval(this.pollId); this.pollId = null; }
+    }
+};
 
 function _formatTime(iso) {
     if (!iso) return '';
