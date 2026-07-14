@@ -538,12 +538,12 @@ body.dark .datetime-date {
     border-left-color:rgba(255,255,255,0.1);
 }
 .datetime-icon {
-    font-size:14px;
+    font-size:16px;
     line-height:1;
     opacity:0.8;
 }
 .datetime-text {
-    font-size:11px;
+    font-size:13px;
     font-weight:700;
     color:var(--text);
     white-space:nowrap;
@@ -1229,8 +1229,8 @@ body.dark .modal-head {
         padding:4px 6px;
         gap:4px;
     }
-    .datetime-icon { font-size:12px; }
-    .datetime-text { font-size:10px; }
+    .datetime-icon { font-size:14px; }
+    .datetime-text { font-size:12px; }
     .datetime-divider {
         height:12px;
         margin:0 1px;
