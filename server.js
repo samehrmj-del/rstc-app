@@ -382,19 +382,6 @@ async function initializeDatabase() {
             updated_at TEXT DEFAULT (datetime('now'))
         )`);
 
-        await dbRun(`CREATE TABLE IF NOT EXISTS Messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            sender_id INTEGER,
-            sender_name TEXT,
-            receiver_id INTEGER,
-            receiver_name TEXT,
-            message TEXT NOT NULL,
-            is_read INTEGER DEFAULT 0,
-            created_at TEXT DEFAULT (datetime('now'))
-        )`);
-        await dbRun("CREATE INDEX IF NOT EXISTS idx_msg_receiver ON Messages(receiver_id, is_read, created_at)");
-        await dbRun("CREATE INDEX IF NOT EXISTS idx_msg_sender ON Messages(sender_id, created_at)");
-
         await dbRun(`CREATE TABLE IF NOT EXISTS SystemOptions (
             field TEXT PRIMARY KEY,
             label TEXT NOT NULL,
@@ -450,7 +437,7 @@ app.post('/api/login', rateLimitLogin, async (req, res) => {
         await dbRun("UPDATE Users SET last_login = ?, login_count = login_count + 1 WHERE id = ?", [now, user.id]);
         const permissions = deserializePermissions(user.permissions);
         const token = jwt.sign({ id: user.id, username: user.username, role: user.role, permissions }, JWT_SECRET, { expiresIn: '8h' });
-        res.json({ success: true, token, id: user.id, role: user.role, username: user.username, permissions });
+        res.json({ success: true, token, role: user.role, username: user.username, permissions });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1006,72 +993,6 @@ app.delete('/api/announcements/:id', authenticateToken, requirePermission(PERMIS
         const { id } = req.params;
         await dbRun("DELETE FROM Announcements WHERE id = ?", [id]);
         res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// ===== CHAT API =====
-app.get('/api/chat/conversations', authenticateToken, async (req, res) => {
-    try {
-        const userId = req.user.id;
-        const role = req.user.role;
-        let conversations = [];
-        if (role === 'admin') {
-            conversations = await dbAll(`SELECT DISTINCT sender_id as user_id, sender_name as name FROM Messages WHERE receiver_id = ? UNION SELECT DISTINCT receiver_id as user_id, receiver_name as name FROM Messages WHERE sender_id = ?`, [userId, userId]);
-        } else {
-            conversations = await dbAll(`SELECT DISTINCT sender_id as user_id, sender_name as name FROM Messages WHERE receiver_id = ? AND sender_id IN (SELECT id FROM Users WHERE role = 'admin') UNION SELECT DISTINCT receiver_id as user_id, receiver_name as name FROM Messages WHERE sender_id = ? AND receiver_id IN (SELECT id FROM Users WHERE role = 'admin')`, [userId, userId]);
-        }
-        res.json({ conversations });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.get('/api/chat/messages', authenticateToken, async (req, res) => {
-    try {
-        const userId = req.user.id;
-        const role = req.user.role;
-        const otherId = parseInt(req.query.userId);
-        if (isNaN(otherId)) return res.status(400).json({ error: 'userId نامعتبر' });
-        const rows = await dbAll(`SELECT * FROM Messages WHERE ((sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)) ORDER BY created_at ASC LIMIT 200`, [userId, otherId, otherId, userId]);
-        res.json({ messages: rows });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/chat/send', authenticateToken, async (req, res) => {
-    try {
-        const senderId = req.user.id;
-        const senderName = req.user.username;
-        const { receiver_id, receiver_name, message } = req.body;
-        if (!receiver_id || !message || !message.trim()) return res.status(400).json({ error: 'گیرنده و متن پیام الزامی است' });
-        const result = await dbRun("INSERT INTO Messages (sender_id, sender_name, receiver_id, receiver_name, message) VALUES (?, ?, ?, ?, ?)", [senderId, senderName, receiver_id, receiver_name || '', message.trim()]);
-        res.json({ success: true, id: result.id });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.put('/api/chat/read', authenticateToken, async (req, res) => {
-    try {
-        const userId = req.user.id;
-        await dbRun("UPDATE Messages SET is_read = 1 WHERE receiver_id = ? AND is_read = 0", [userId]);
-        res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.get('/api/chat/unread-count', authenticateToken, async (req, res) => {
-    try {
-        const userId = req.user.id;
-        const row = await dbGet("SELECT COUNT(*) as cnt FROM Messages WHERE receiver_id = ? AND is_read = 0", [userId]);
-        res.json({ count: row ? row.cnt : 0 });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.get('/api/chat/users', authenticateToken, async (req, res) => {
-    try {
-        const role = req.user.role;
-        let users = [];
-        if (role === 'admin') {
-            users = await dbAll("SELECT id, username, role, status FROM Users WHERE id != ? AND status = 'active'", [req.user.id]);
-        } else {
-            users = await dbAll("SELECT id, username, role, status FROM Users WHERE role = 'admin' AND status = 'active'");
-        }
-        res.json({ users });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

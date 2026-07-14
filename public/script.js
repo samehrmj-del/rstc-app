@@ -514,7 +514,6 @@ async function doLogin() {
     try {
         const data = await api('/api/login', { method: 'POST', body: JSON.stringify({ username, password }) });
         setToken(data.token); currentUserRole = data.role; currentUsername = data.username; currentUserPermissions = data.permissions || [];
-        window.currentUser = { id: data.id, username: data.username, role: data.role };
         if (window.stopLoginCanvas) window.stopLoginCanvas();
         document.body.classList.add('logged-in');
         el('login-page').style.display = 'none';
@@ -526,12 +525,10 @@ async function doLogin() {
         if (hasPerm(currentUserPermissions, 'backup:view')) el('nav-backup').style.display = 'flex';
         if (hasPerm(currentUserPermissions, 'options:view')) el('nav-options').style.display = 'flex';
         if (hasPerm(currentUserPermissions, 'audit:view')) el('nav-audit').style.display = 'flex';
-        const chatNav = el('nav-chat');
-        if (chatNav) chatNav.style.display = 'flex';
         const aiWidget = el('ai-chat-widget');
         if (aiWidget) aiWidget.style.display = hasPerm(currentUserPermissions, 'ai_chat:view') ? 'flex' : 'none';
         _showPage('dashboard');
-        updateClock(); loadDashboard(); _startSessionTimer(); loadAllOptions(); checkAnnouncement(); requestNotificationPermission(); Chat.init();
+        updateClock(); loadDashboard(); _startSessionTimer(); loadAllOptions(); checkAnnouncement(); requestNotificationPermission();
     } catch (e) { errEl.textContent = e.message; errEl.style.display = 'block'; }
     _setLoginButtonState(false);
 }
@@ -548,8 +545,7 @@ function doLogout() {
     el('login-page').style.display = 'flex';
     el('username').value = ''; el('password').value = '';
     el('login-error').style.display = 'none';
-    el('nav-users').style.display = 'none'; el('nav-backup').style.display = 'none'; el('nav-options').style.display = 'none'; el('nav-audit').style.display = 'none'; const chatNav = el('nav-chat'); if (chatNav) chatNav.style.display = 'none';
-    Chat.close();
+    el('nav-users').style.display = 'none'; el('nav-backup').style.display = 'none'; el('nav-options').style.display = 'none'; el('nav-audit').style.display = 'none';
 }
 
 // ===== OPTIONS MANAGEMENT =====
@@ -742,156 +738,6 @@ function sendBrowserNotification(title, body, icon) {
         n.onclick = () => { window.focus(); n.close(); };
         setTimeout(() => n.close(), 8000);
     } catch (e) { console.warn('Notification failed:', e); }
-}
-
-// ===== CHAT =====
-const Chat = {
-    open: false,
-    selectedUserId: null,
-    selectedUserName: null,
-    pollId: null,
-    users: [],
-
-    init() {
-        const fab = el('chat-fab');
-        const panel = el('chat-panel');
-        if (!fab || !panel) return;
-        fab.addEventListener('click', () => this.toggle());
-        el('chat-close').addEventListener('click', () => this.close());
-        el('chat-message-input').addEventListener('keydown', e => {
-            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.send(); }
-        });
-    },
-
-    toggle() {
-        this.open ? this.close() : this.openPanel();
-    },
-
-    openPanel() {
-        this.open = true;
-        el('chat-widget').classList.add('chat-open');
-        this.loadUsers();
-        this.startPolling();
-    },
-
-    close() {
-        this.open = false;
-        el('chat-widget').classList.remove('chat-open');
-        this.stopPolling();
-    },
-
-    async loadUsers() {
-        try {
-            const data = await api('/api/chat/users');
-            this.users = data.users || [];
-            this.renderUsers();
-        } catch (e) {
-            console.error('Chat users load failed:', e);
-        }
-    },
-
-    renderUsers() {
-        const list = el('chat-user-list');
-        if (!this.users.length) {
-            list.innerHTML = '<div style="padding:12px;color:var(--text-muted);font-size:12px;text-align:center;">کاربری یافت نشد</div>';
-            return;
-        }
-        list.innerHTML = this.users.map(u => `
-            <div class="chat-user-item ${this.selectedUserId === u.id ? 'active' : ''}" data-uid="${u.id}">
-                <div class="chat-user-avatar">${u.username[0].toUpperCase()}</div>
-                <div class="chat-user-name">${_esc(u.username)}</div>
-            </div>
-        `).join('');
-        list.querySelectorAll('.chat-user-item').forEach(item => {
-            item.addEventListener('click', () => {
-                const uid = parseInt(item.dataset.uid);
-                const user = this.users.find(u => u.id === uid);
-                if (user) this.selectUser(uid, user.username);
-            });
-        });
-    },
-
-    selectUser(userId, userName) {
-        this.selectedUserId = userId;
-        this.selectedUserName = userName;
-        el('chat-placeholder').style.display = 'none';
-        el('chat-messages').style.display = 'flex';
-        el('chat-input-area').style.display = 'flex';
-        this.renderUsers();
-        this.loadMessages(userId);
-    },
-
-    async loadMessages(userId) {
-        try {
-            const data = await api(`/api/chat/messages?userId=${userId}`);
-            const container = el('chat-messages');
-            if (!data.messages || !data.messages.length) {
-                container.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-size:12px;padding:20px;">هنوز پیامی تبادل نشده</div>';
-                return;
-            }
-            const myId = this.getMyId();
-            container.innerHTML = data.messages.map(m => {
-                const isMe = m.sender_id === myId;
-                return `<div class="chat-msg ${isMe ? 'sent' : 'received'}">
-                    <div>${_esc(m.message)}</div>
-                    <div class="chat-msg-time">${_formatTime(m.created_at)}</div>
-                </div>`;
-            }).join('');
-            container.scrollTop = container.scrollHeight;
-        } catch (e) {
-            console.error('Chat messages load failed:', e);
-        }
-    },
-
-    async send() {
-        const input = el('chat-message-input');
-        const text = input.value.trim();
-        if (!text || !this.selectedUserId) return;
-        try {
-            await api('/api/chat/send', { method: 'POST', body: JSON.stringify({ receiver_id: this.selectedUserId, receiver_name: this.selectedUserName, message: text }) });
-            input.value = '';
-            await this.loadMessages(this.selectedUserId);
-        } catch (e) {
-            showToast(e.message, 'error');
-        }
-    },
-
-    getMyId() {
-        return (window.currentUser && window.currentUser.id) ? window.currentUser.id : null;
-    },
-
-    async checkUnread() {
-        try {
-            const data = await api('/api/chat/unread-count');
-            const badge = el('chat-badge');
-            if (data.count > 0) {
-                badge.textContent = data.count > 99 ? '99+' : data.count;
-                badge.style.display = 'inline';
-            } else {
-                badge.style.display = 'none';
-            }
-        } catch (e) { console.warn('Unread check failed:', e); }
-    },
-
-    startPolling() {
-        this.stopPolling();
-        this.pollId = setInterval(async () => {
-            await this.checkUnread();
-            if (this.open && this.selectedUserId) {
-                await this.loadMessages(this.selectedUserId);
-            }
-        }, 3000);
-    },
-
-    stopPolling() {
-        if (this.pollId) { clearInterval(this.pollId); this.pollId = null; }
-    }
-};
-
-function _formatTime(iso) {
-    if (!iso) return '';
-    const d = new Date(iso);
-    return d.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' });
 }
 
 const _fieldIcons = { emp_type:'👔', last_degree:'🎓', mission_type:'📋', device_type:'🔧', repair_type:'🛠️', region:'📍', announcements:'📢' };
