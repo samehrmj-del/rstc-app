@@ -183,6 +183,9 @@
                 <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="تغییر تم">
                     <span class="theme-icon">🌙</span>
                 </button>
+                <button class="notif-toggle" id="notifToggle" onclick="requestNotificationPermission()" title="فعال کردن اعلان‌ها">
+                    <span class="notif-icon">🔔</span>
+                </button>
             </div>
         </header>
 
@@ -190,6 +193,7 @@
 
             <!-- داشبورد -->
             <section id="page-dashboard" class="page active-page">
+                <div id="dashboard-announcement-banner"></div>
 
                 <!-- ردیف ۱: خلاصه ماموریت‌ها -->
                 <div class="dash-section-title"><span class="dash-section-icon">📋</span> خلاصه ماموریت‌ها</div>
@@ -1197,6 +1201,19 @@
                 <button class="btn-primary" onclick="savePassword()">💾 ذخیره رمز جدید</button>
                 <button class="btn-ghost" onclick="closePasswordModal()">انصراف</button>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal اطلاعیه‌ها -->
+<div id="announcementModal" class="modal-overlay" onclick="closeAnnouncementModal(event)">
+    <div class="modal-box announcement-modal-box" onclick="event.stopPropagation()">
+        <div class="modal-head">
+            <h3 id="announcementModalTitle">📢 اطلاعیه</h3>
+            <button class="close-form-btn" onclick="closeAnnouncementModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <div id="announcementModalBody"></div>
         </div>
     </div>
 </div>

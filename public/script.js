@@ -528,7 +528,7 @@ async function doLogin() {
         const aiWidget = el('ai-chat-widget');
         if (aiWidget) aiWidget.style.display = hasPerm(currentUserPermissions, 'ai_chat:view') ? 'flex' : 'none';
         _showPage('dashboard');
-        updateClock(); loadDashboard(); _startSessionTimer(); loadAllOptions();
+        updateClock(); loadDashboard(); _startSessionTimer(); loadAllOptions(); checkAnnouncement(); requestNotificationPermission();
     } catch (e) { errEl.textContent = e.message; errEl.style.display = 'block'; }
     _setLoginButtonState(false);
 }
@@ -601,7 +601,146 @@ function closeOptionsModal(e) {
     _currentOptionField = null;
 }
 
-const _fieldIcons = { emp_type:'👔', last_degree:'🎓', mission_type:'📋', device_type:'🔧', repair_type:'🛠️', region:'📍' };
+// ===== ANNOUNCEMENTS =====
+async function checkAnnouncement() {
+    try {
+        const data = await api('/api/announcements/active');
+        if (data && data.id) {
+            showAnnouncementModal(data);
+        }
+    } catch (e) {
+        console.warn('Announcement check failed:', e);
+    }
+}
+
+function showAnnouncementModal(ann) {
+    const modal = el('announcementModal');
+    const body = el('announcementModalBody');
+    const typeLabels = { info: 'اطلاعیه', warning: 'هشدار', danger: 'مهم', success: 'موفقیت' };
+    const typeIcons = { info: 'ℹ️', warning: '⚠️', danger: '🚨', success: '✅' };
+    body.innerHTML = `
+        <div class="announcement-content">
+            <div style="display:flex; align-items:center; gap:12px;">
+                <div class="announcement-icon">${typeIcons[ann.type] || '📢'}</div>
+                <div>
+                    <h4 class="announcement-title">${_esc(ann.title)}</h4>
+                    <span class="announcement-type-badge announcement-type-${ann.type}">${typeLabels[ann.type] || ann.type}</span>
+                </div>
+            </div>
+            <div class="announcement-message">${_esc(ann.message)}</div>
+            <div class="announcement-footer">
+                <button class="btn-primary" onclick="closeAnnouncementModal()">متوجه شدم</button>
+            </div>
+        </div>
+    `;
+    modal.style.display = 'flex';
+}
+
+function closeAnnouncementModal(e) {
+    if (e && e.target !== e.currentTarget) return;
+    el('announcementModal').style.display = 'none';
+}
+
+// Admin: manage announcements
+async function loadAnnouncements() {
+    try {
+        const data = await api('/api/announcements');
+        const container = el('announcements-manage-container');
+        if (!container) return;
+        if (!data.results || !data.results.length) {
+            container.innerHTML = '<div class="announcement-empty">هنوز اطلاعیه‌ای ثبت نشده</div>';
+            return;
+        }
+        container.innerHTML = '<div class="announcement-manage-list">' + data.results.map(ann => `
+            <div class="announcement-manage-item">
+                <div class="announcement-manage-info">
+                    <div class="announcement-manage-title">${_esc(ann.title)}</div>
+                    <div class="announcement-manage-meta">${_esc(ann.type)} • ${_esc(ann.created_at)} • ${ann.is_active ? 'فعال' : 'غیرفعال'}</div>
+                </div>
+                <div class="announcement-manage-actions">
+                    <button class="announcement-toggle-btn ${ann.is_active ? 'active' : ''}" onclick="toggleAnnouncement(${ann.id}, ${!ann.is_active})">
+                        ${ann.is_active ? 'غیرفعال' : 'فعال'}
+                    </button>
+                    <button class="announcement-delete-btn" onclick="deleteAnnouncement(${ann.id})">🗑️</button>
+                </div>
+            </div>
+        `).join('') + '</div>';
+    } catch (e) {
+        console.error('loadAnnouncements failed:', e);
+    }
+}
+
+async function createAnnouncement() {
+    const title = el('ann-title').value.trim();
+    const message = el('ann-message').value.trim();
+    const type = el('ann-type').value;
+    if (!title || !message) { showToast('عنوان و متن اطلاعیه الزامی است', 'warning'); return; }
+    try {
+        await api('/api/announcements', { method: 'POST', body: JSON.stringify({ title, message, type }) });
+        el('ann-title').value = ''; el('ann-message').value = '';
+        showToast('اطلاعیه با موفقیت ایجاد شد', 'success');
+        sendBrowserNotification('📢 اطلاعیه جدید', title, null);
+        loadAnnouncements();
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function toggleAnnouncement(id, active) {
+    try {
+        await api(`/api/announcements/${id}`, { method: 'PUT', body: JSON.stringify({ is_active: active }) });
+        showToast(active ? 'اطلاعیه فعال شد' : 'اطلاعیه غیرفعال شد', 'success');
+        loadAnnouncements();
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function deleteAnnouncement(id) {
+    if (!await _confirm('آیا مطمئن هستید که این اطلاعیه حذف شود؟')) return;
+    try {
+        await api(`/api/announcements/${id}`, { method: 'DELETE' });
+        showToast('اطلاعیه حذف شد', 'success');
+        loadAnnouncements();
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+// ===== PUSH NOTIFICATIONS =====
+function requestNotificationPermission() {
+    if (!('Notification' in window)) { showToast('مرورگر شما از اعلان‌ها پشتیبانی نمی‌کند', 'warning'); return false; }
+    if (Notification.permission === 'granted') {
+        const btn = el('notifToggle');
+        if (btn) btn.classList.add('granted');
+        return true;
+    }
+    if (Notification.permission === 'denied') {
+        showToast('اعلان‌ها در این مرورگر مسدود شده‌اند', 'warning');
+        return false;
+    }
+    Notification.requestPermission().then(p => {
+        if (p === 'granted') {
+            const btn = el('notifToggle');
+            if (btn) btn.classList.add('granted');
+            showToast('اعلان‌ها فعال شدند', 'success');
+        } else {
+            showToast('اعلان‌ها فعال نشدند', 'warning');
+        }
+    });
+}
+
+function sendBrowserNotification(title, body, icon) {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    try {
+        const n = new Notification(title, {
+            body: body || '',
+            icon: icon || 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏢</text></svg>',
+            badge: 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏢</text></svg>',
+            tag: 'rstc-notif',
+            renotify: true,
+            requireInteraction: false
+        });
+        n.onclick = () => { window.focus(); n.close(); };
+        setTimeout(() => n.close(), 8000);
+    } catch (e) { console.warn('Notification failed:', e); }
+}
+
+const _fieldIcons = { emp_type:'👔', last_degree:'🎓', mission_type:'📋', device_type:'🔧', repair_type:'🛠️', region:'📍', announcements:'📢' };
 
 function _renderOptionsSidebar() {
     const c = el('options-sidebar-list');
@@ -614,10 +753,37 @@ function _renderOptionsSidebar() {
         d.onclick = () => { _currentOptionField = key; _renderOptionsSidebar(); _renderOptionsList(); };
         c.appendChild(d);
     });
+    // Announcements item
+    const annItem = document.createElement('div');
+    annItem.className = 'opt-sidebar-item' + (_currentOptionField === 'announcements' ? ' active' : '');
+    annItem.innerHTML = '<span class="opt-sb-icon">📢</span><span class="opt-sb-text">اطلاعیه‌ها</span><span class="opt-sb-count">📢</span>';
+    annItem.onclick = () => { _currentOptionField = 'announcements'; _renderOptionsSidebar(); _renderOptionsList(); };
+    c.appendChild(annItem);
 }
 
 function _renderOptionsList() {
     if (!_currentOptionField) { el('options-field-label').textContent = 'یک فیلد را انتخاب کنید'; el('options-list-container').innerHTML = '<div style="text-align:center;color:#94a3b8;padding:40px;">از سمت راست یک فیلد انتخاب کنید</div>'; return; }
+    if (_currentOptionField === 'announcements') {
+        el('options-field-label').textContent = 'مدیریت اطلاعیه‌ها';
+        el('options-list-container').innerHTML = `
+            <div class="announcement-form">
+                <input type="text" id="ann-title" placeholder="عنوان اطلاعیه...">
+                <textarea id="ann-message" placeholder="متن اطلاعیه..."></textarea>
+                <select id="ann-type">
+                    <option value="info">ℹ️ اطلاعیه</option>
+                    <option value="warning">⚠️ هشدار</option>
+                    <option value="danger">🚨 مهم</option>
+                    <option value="success">✅ موفقیت</option>
+                </select>
+                <div class="announcement-form-actions">
+                    <button class="btn-primary" onclick="createAnnouncement()">➕ ایجاد اطلاعیه</button>
+                </div>
+            </div>
+            <div id="announcements-manage-container"></div>
+        `;
+        loadAnnouncements();
+        return;
+    }
     const field = _allOptions[_currentOptionField];
     el('options-field-label').textContent = field.label + ' (' + field.options.length + ' گزینه)';
     const c = el('options-list-container');
@@ -747,7 +913,30 @@ async function loadDashboard() {
         if (el('recent-personnel') && data.recentPersonnel) {
             el('recent-personnel').innerHTML = data.recentPersonnel.length ? data.recentPersonnel.map(p => `<div class="recent-item"><span class="recent-name">${_esc(p.name)} ${_esc(p.lname || '')}</span><span class="recent-meta">${_esc(p.job_title || '')} — ${_esc(p.status || '')}</span></div>`).join('') : '<p style="color:var(--text-muted);font-size:12px;padding:8px;">پرسنلی ثبت نشده</p>';
         }
+        loadDashboardAnnouncement();
     } catch (e) { console.error('Dashboard error:', e); }
+}
+
+async function loadDashboardAnnouncement() {
+    const banner = el('dashboard-announcement-banner');
+    if (!banner) return;
+    try {
+        const data = await api('/api/announcements/active');
+        if (!data || !data.id) { banner.innerHTML = ''; return; }
+        const typeIcons = { info: 'ℹ️', warning: '⚠️', danger: '🚨', success: '✅' };
+        banner.innerHTML = `
+            <div class="dash-announcement">
+                <div class="dash-announcement-icon">${typeIcons[data.type] || '📢'}</div>
+                <div class="dash-announcement-body">
+                    <div class="dash-announcement-title">${_esc(data.title)}</div>
+                    <div class="dash-announcement-message">${_esc(data.message)}</div>
+                </div>
+                <div class="dash-announcement-actions">
+                    <button class="dash-announcement-close" onclick="document.getElementById('dashboard-announcement-banner').innerHTML=''" title="بستن">✕</button>
+                </div>
+            </div>
+        `;
+    } catch (e) { console.error('Dashboard announcement load failed:', e); }
 }
 
 function _esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
@@ -1529,6 +1718,7 @@ async function saveAdvancedMission() {
         } else {
             await api('/api/missions', { method: 'POST', body: JSON.stringify(data) });
             showToast('ماموریت ثبت شد', 'success');
+            sendBrowserNotification('📋 ماموریت جدید', `${data.name} ${data.lname || ''} — ${data.location || ''}`, null);
         }
         closeMissionForm(); loadMissions(); loadDashboard();
     } catch (e) { errEl.textContent = e.message; errEl.style.display = 'block'; }
