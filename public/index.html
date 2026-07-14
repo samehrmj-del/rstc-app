@@ -116,7 +116,7 @@
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-brand">
-            <div class="sidebar-logo">R</div>
+            <div class="sidebar-logo">co</div>
             <span>RSTC</span>
         </div>
         <nav class="sidebar-nav">
@@ -148,6 +148,11 @@
                 </li>
             </ul>
         </nav>
+        <div class="sidebar-footer">
+            <li class="nav-item nav-help" data-page="help">
+                <span class="nav-icon">❓</span><span>راهنما</span>
+            </li>
+        </div>
         <div class="sidebar-user">
             <div class="user-avatar" id="user-avatar">A</div>
             <div class="user-info">
@@ -164,8 +169,20 @@
             <button class="burger-btn" id="burgerBtn" onclick="toggleSidebar()">☰</button>
             <h2 class="page-heading" id="page-heading">داشبورد</h2>
             <div class="topbar-meta">
-                <div class="meta-chip date-chip" id="live-date"></div>
-                <div class="meta-chip clock-chip" id="live-clock"></div>
+                <div class="datetime-widget" id="datetimeWidget">
+                    <div class="datetime-date" id="live-date">
+                        <span class="datetime-icon">📅</span>
+                        <span class="datetime-text"></span>
+                    </div>
+                    <div class="datetime-divider"></div>
+                    <div class="datetime-clock" id="live-clock">
+                        <span class="datetime-icon">🕐</span>
+                        <span class="datetime-text"></span>
+                    </div>
+                </div>
+                <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="تغییر تم">
+                    <span class="theme-icon">🌙</span>
+                </button>
             </div>
         </header>
 
@@ -292,7 +309,7 @@
             </section>
 
             <!-- پرسنل -->
-            <section id="page-personnel" class="page" style="display:none;">
+            <section id="page-personnel" class="page">
                 <div class="section-toolbar">
                     <button class="btn-primary" onclick="togglePerForm()">＋ ثبت پرسنل جدید</button>
                     <div class="search-box">
@@ -360,7 +377,7 @@
             </section>
 
             <!-- کاربران -->
-            <section id="page-users" class="page" style="display:none;">
+            <section id="page-users" class="page">
                 <div class="section-toolbar">
                     <button class="btn-primary" onclick="toggleUserForm()">＋ کاربر جدید</button>
                     <button class="btn-ghost" onclick="openSelfPasswordModal()" style="font-size:12px;">🔑 تغییر رمز خودم</button>
@@ -427,7 +444,7 @@
             </section>
         
             <!-- صفحه ماموریت ها -->
-            <section id="page-missions" class="page" style="display:none;">
+            <section id="page-missions" class="page">
     <div class="section-toolbar">
         <button class="btn-primary" onclick="toggleMissionForm()">＋ ثبت ماموریت جدید</button>
         <div class="search-box">
@@ -516,7 +533,7 @@
             </section>
 
             <!-- صفحه گزارش‌گیری -->
-            <section id="page-reports" class="page" style="display:none;">
+            <section id="page-reports" class="page">
                 <div class="reports-toolbar">
                     <div class="reports-filter-card">
                         <div class="filter-header">
@@ -573,12 +590,12 @@
                             </div>
                         </div>
 
-                        <!-- گروه ۳: تجهیزات و تاریخ -->
+                        <!-- گروه ۳: تجهیزات -->
                         <div class="filter-group collapsed">
                             <div class="filter-group-header" onclick="toggleGroup(this)">
                                 <div class="filter-group-header-right">
                                     <span class="filter-group-icon">🔧</span>
-                                    <span class="filter-group-title">تجهیزات و تاریخ</span>
+                                    <span class="filter-group-title">تجهیزات</span>
                                 </div>
                                 <span class="group-toggle-icon">▲</span>
                             </div>
@@ -590,7 +607,19 @@
                                     <div class="input-group"><label>سریال دستگاه</label><input type="text" id="r_serial" placeholder="شماره سریال"></div>
                                     <div class="input-group"><label> </label><div></div></div>
                                 </div>
-                                <div class="filter-divider"></div>
+                            </div>
+                        </div>
+
+                        <!-- گروه ۴: تاریخ -->
+                        <div class="filter-group collapsed">
+                            <div class="filter-group-header" onclick="toggleGroup(this)">
+                                <div class="filter-group-header-right">
+                                    <span class="filter-group-icon">📅</span>
+                                    <span class="filter-group-title">تاریخ</span>
+                                </div>
+                                <span class="group-toggle-icon">▲</span>
+                            </div>
+                            <div class="filter-group-body">
                                 <div class="filter-row-4">
                                     <div class="input-group"><label>تاریخ شروع از</label><input type="text" id="r_start_from" placeholder="از تاریخ" readonly></div>
                                     <div class="input-group"><label>تاریخ شروع تا</label><input type="text" id="r_start_to" placeholder="تا تاریخ" readonly></div>
@@ -669,8 +698,248 @@
                 </div>
             </section>
 
+            <!-- صفحه راهنما -->
+            <section id="page-help" class="page">
+                <div class="help-container">
+                    <div class="help-header">
+                        <div class="help-header-icon">📖</div>
+                        <div>
+                            <h2>راهنمای استفاده از سیستم</h2>
+                            <p>قدم به قدم یاد بگیرید چگونه از نرم‌افزار RSTC استفاده کنید</p>
+                        </div>
+                    </div>
+
+                    <div class="help-sections">
+                        <!-- بخش ۱: شروع کار -->
+                        <div class="help-card">
+                            <div class="help-card-header">
+                                <span class="help-card-icon">🚀</span>
+                                <h3>شروع کار با سیستم</h3>
+                            </div>
+                            <div class="help-card-body">
+                                <div class="help-step">
+                                    <div class="step-number">1</div>
+                                    <div class="step-content">
+                                        <h4>ورود به سیستم</h4>
+                                        <p>در صفحه ورود، نام کاربری و رمز عبور خود را وارد کرده و دکمه <strong>ورود</strong> را بزنید.</p>
+                                    </div>
+                                </div>
+                                <div class="help-step">
+                                    <div class="step-number">2</div>
+                                    <div class="step-content">
+                                        <h4>داشبورد</h4>
+                                        <p>پس از ورود، به صفحه <strong>داشبورد</strong> می‌روید. در اینجا خلاصه آمار کل سیستم را می‌بینید: تعداد کل پرسنل، تعداد ماموریت‌ها و وضعیت‌های مختلف.</p>
+                                    </div>
+                                </div>
+                                <div class="help-step">
+                                    <div class="step-number">3</div>
+                                    <div class="step-content">
+                                        <h4>منوی کناری</h4>
+                                        <p>از منوی سمت چپ می‌توانید بین بخش‌های مختلف سیستم جابجا شوید. هر آیکون یک بخش خاص را نشان می‌دهد.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- بخش ۲: مدیریت پرسنل -->
+                        <div class="help-card">
+                            <div class="help-card-header">
+                                <span class="help-card-icon">👥</span>
+                                <h3>مدیریت پرسنل</h3>
+                            </div>
+                            <div class="help-card-body">
+                                <div class="help-step">
+                                    <div class="step-number">1</div>
+                                    <div class="step-content">
+                                        <h4>افزودن پرسنل جدید</h4>
+                                        <p>منوی <strong>مدیریت پرسنل</strong> را انتخاب کنید. دکمه <strong>＋ افزودن پرسنل</strong> را بزنید. فرم را پر کنید:</p>
+                                        <ul>
+                                            <li><strong>نام و نام خانوادگی:</strong> را وارد کنید</li>
+                                            <li><strong>شماره پرسنلی:</strong> کد پرسنلی را وارد کنید</li>
+                                            <li><strong>کد ملی:</strong> شماره ملی ۱۰ رقمی</li>
+                                            <li><strong>شغل و عنوان:</strong> شغل فعلی را انتخاب کنید</li>
+                                            <li><strong>تاریخ استخدام:</strong> از طریق تقویم انتخاب کنید</li>
+                                            <li><strong>وضعیت:</strong> فعال یا غیرفعال</li>
+                                        </ul>
+                                        <p>در نهاية <strong>ذخیره</strong> را بزنید.</p>
+                                    </div>
+                                </div>
+                                <div class="help-step">
+                                    <div class="step-number">2</div>
+                                    <div class="step-content">
+                                        <h4>جستجوی پرسنل</h4>
+                                        <p>در بالای صفحه، کادر جستجو را باز کنید. می‌توانید بر اساس <strong>نام، نام خانوادگی، شماره پرسنلی یا کد ملی</strong> جستجو کنید. نتیجه به صورت خودکار نمایش داده می‌شود.</p>
+                                    </div>
+                                </div>
+                                <div class="help-step">
+                                    <div class="step-number">3</div>
+                                    <div class="step-content">
+                                        <h4>ویرایش و حذف</h4>
+                                        <p>برای ویرایش اطلاعات یک پرسنل، روی دکمه <strong>✏️ ویرایش</strong> در کنار نام او کلیک کنید. برای حذف، دکمه <strong>🗑️ حذف</strong> را بزنید.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- بخش ۳: صدور ماموریت -->
+                        <div class="help-card">
+                            <div class="help-card-header">
+                                <span class="help-card-icon">📋</span>
+                                <h3>صدور حکم ماموریت</h3>
+                            </div>
+                            <div class="help-card-body">
+                                <div class="help-step">
+                                    <div class="step-number">1</div>
+                                    <div class="step-content">
+                                        <h4>باز کردن فرم ماموریت</h4>
+                                        <p>از منوی کناری <strong>صدور ماموریت</strong> را انتخاب کنید. دکمه <strong>＋ ثبت ماموریت جدید</strong> را بزنید. فرمی به شما نمایش داده می‌شود.</p>
+                                    </div>
+                                </div>
+                                <div class="help-step">
+                                    <div class="step-number">2</div>
+                                    <div class="step-content">
+                                        <h4>پر کردن فرم</h4>
+                                        <ul>
+                                            <li><strong>نام:</strong> شروع به تایپ نام پرسنل کنید. لیستی از پرسنل‌های مشابه نمایش داده می‌شود. روی نام مورد نظر کلیک کنید تا اطلاعات خودکار تکمیل شود.</li>
+                                            <li><strong>نوع ماموریت:</strong> از لیست بازشونده انتخاب کنید (رفت، برگشت، خدماتی و ...)</li>
+                                            <li><strong>نوع دستگاه:</strong> دستگاه مورد نیاز را انتخاب کنید</li>
+                                            <li><strong>ناحیه:</strong> ناحیه ماموریت را انتخاب کنید</li>
+                                            <li><strong>محل ماموریت:</strong> آدرس یا محل دقیق را وارد کنید</li>
+                                            <li><strong>تاریخ‌ها:</strong> تاریخ شروع، پایان و صدور را انتخاب کنید</li>
+                                            <li><strong>وضعیت:</strong> انفرادی/گروهی، تامین شده/نشده و ... را علامت بزنید</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="help-step">
+                                    <div class="step-number">3</div>
+                                    <div class="step-content">
+                                        <h4>ذخیره و چاپ</h4>
+                                        <p>پس از پر کردن کامل فرم، دکمه <strong>💾 ذخیره حکم ماموریت</strong> را بزنید. می‌توانید حکم را چاپ یا به PDF تبدیل کنید.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- بخش ۴: گزارش‌گیری -->
+                        <div class="help-card">
+                            <div class="help-card-header">
+                                <span class="help-card-icon">📈</span>
+                                <h3>گزارش‌گیری و فیلتر</h3>
+                            </div>
+                            <div class="help-card-body">
+                                <div class="help-step">
+                                    <div class="step-number">1</div>
+                                    <div class="step-content">
+                                        <h4>استفاده از فیلترها</h4>
+                                        <p>در صفحه <strong>گزارش‌گیری</strong>، فیلترهای مختلفی برای جستجو دارید:</p>
+                                        <ul>
+                                            <li><strong>اطلاعات اصلی:</strong> نام، شماره پرسنلی، شماره حکم</li>
+                                            <li><strong>ماموریت و منطقه:</strong> نوع ماموریت، ناحیه، محل</li>
+                                            <li><strong>تجهیزات:</strong> نوع دستگاه، سریال دستگاه</li>
+                                            <li><strong>تاریخ:</strong> محدوده تاریخ شروع و پایان</li>
+                                        </ul>
+                                        <p>هر گروه فیلتر را می‌توانید باز یا بسته کنید.</p>
+                                    </div>
+                                </div>
+                                <div class="help-step">
+                                    <div class="step-number">2</div>
+                                    <div class="step-content">
+                                        <h4>میانبرهای سریع</h4>
+                                        <p>برای گزارش‌های پرکاربرد، از دکمه‌های <strong>قالب‌های سریع</strong> استفاده کنید:</p>
+                                        <ul>
+                                            <li><strong>گزارش پرسنل:</strong> همه پرسنل</li>
+                                            <li><strong>گزارش ماهانه:</strong> ماموریت‌های ماه جاری</li>
+                                            <li><strong>گزارش دستگاه:</strong> ماموریت‌های مرتبط با دستگاه</li>
+                                            <li><strong>گزارش منطقه:</strong> ماموریت‌های یک ناحیه</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="help-step">
+                                    <div class="step-number">3</div>
+                                    <div class="step-content">
+                                        <h4>خروجی گرفتن</h4>
+                                        <p>پس از جستجو، نتایج در جدول نمایش داده می‌شود. می‌توانید:</p>
+                                        <ul>
+                                            <li>جدول را <strong>چاپ</strong> کنید</li>
+                                            <li>گزارش را به <strong>فرمت اکسل</strong> export کنید</li>
+                                            <li>ستون‌ها را <strong>مرتب کنید</strong> با کلیک روی عنوان ستون</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- بخش ۵: پشتیبان‌گیری -->
+                        <div class="help-card">
+                            <div class="help-card-header">
+                                <span class="help-card-icon">💾</span>
+                                <h3>پشتیبان‌گیری و بازیابی</h3>
+                            </div>
+                            <div class="help-card-body">
+                                <div class="help-step">
+                                    <div class="step-number">1</div>
+                                    <div class="step-content">
+                                        <h4>ایجاد پشتیبان</h4>
+                                        <p>به بخش <strong>پشتیبان‌گیری</strong> بروید. دکمه <strong>دانلود پشتیبان</strong> را بزنید. فایل پایگاه داده با تاریخ و ساعت فعلی دانلود می‌شود.</p>
+                                    </div>
+                                </div>
+                                <div class="help-step">
+                                    <div class="step-number">2</div>
+                                    <div class="step-content">
+                                        <h4>بازیابی</h4>
+                                        <p>برای بازگرداندن اطلاعات از یک پشتیبان قبلی:</p>
+                                        <ul>
+                                            <li>فایل پشتیبان (.db) را انتخاب کنید</li>
+                                            <li>دکمه <strong>بازیابی</strong> را بزنید</li>
+                                            <li>تایید کنید که اطلاعات فعلی جایگزین شود</li>
+                                        </ul>
+                                        <p class="warning-text">⚠️ توجه: بازیابی تمام اطلاعات فعلی را با اطلاعات پشتیبان جایگزین می‌کند.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- بخش ۶: نکات کاربردی -->
+                        <div class="help-card help-tips">
+                            <div class="help-card-header">
+                                <span class="help-card-icon">💡</span>
+                                <h3>نکات کاربردی</h3>
+                            </div>
+                            <div class="help-card-body">
+                                <div class="tips-grid">
+                                    <div class="tip-item">
+                                        <span class="tip-icon">🔍</span>
+                                        <p>برای جستجوی سریع، از کادر جستجوی بالای هر صفحه استفاده کنید.</p>
+                                    </div>
+                                    <div class="tip-item">
+                                        <span class="tip-icon">📱</span>
+                                        <p>این سیستم موبایل-responsive است و روی موبایل و تبلت نیز کار می‌کند.</p>
+                                    </div>
+                                    <div class="tip-item">
+                                        <span class="tip-icon">🖨️</span>
+                                        <p>برای چاپ هر صفحه، از دکمه چاپ مرورگر استفاده کنید یا دکمه چاپ موجود در صفحه را بزنید.</p>
+                                    </div>
+                                    <div class="tip-item">
+                                        <span class="tip-icon">📤</span>
+                                        <p>گزارش‌ها را می‌توانید در فرمت Excel ذخیره کنید.</p>
+                                    </div>
+                                    <div class="tip-item">
+                                        <span class="tip-icon">📅</span>
+                                        <p>برای انتخاب تاریخ، روی فیلد تاریخ کلیک کنید تا تقویم باز شود.</p>
+                                    </div>
+                                    <div class="tip-item">
+                                        <span class="tip-icon">🔒</span>
+                                        <p>برای امنیت بیشتر، بعد از کار از سیستم خارج شوید (دکمه خروج).</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- بخش پشتیبان‌گیری -->
-            <section id="page-backup" class="page" style="display:none;">
+            <section id="page-backup" class="page">
                 <div class="backup-page-header">
                     <h2>پشتیبان‌گیری و بازیابی</h2>
                     <p>مدیریت امن نسخه‌های پشتیبان از پایگاه داده</p>
@@ -853,7 +1122,7 @@
                 </div>
             </section>
 
-            <section id="page-audit" class="page" style="display:none;">
+            <section id="page-audit" class="page">
                 <div class="top-bar">
                     <div class="search-box">
                         <input type="text" id="audit-search" placeholder="جستجو..." oninput="loadAuditLog()">
@@ -1000,6 +1269,30 @@
         </div>
     </div>
 </div>
+
+<!-- Mobile Bottom Navigation -->
+<nav class="bottom-nav" id="bottomNav">
+    <button class="bottom-nav-item active" data-page="dashboard">
+        <span class="bottom-nav-icon">📊</span>
+        <span class="bottom-nav-label">داشبورد</span>
+    </button>
+    <button class="bottom-nav-item" data-page="personnel">
+        <span class="bottom-nav-icon">👥</span>
+        <span class="bottom-nav-label">پرسنل</span>
+    </button>
+    <button class="bottom-nav-item" data-page="missions">
+        <span class="bottom-nav-icon">📋</span>
+        <span class="bottom-nav-label">ماموریت</span>
+    </button>
+    <button class="bottom-nav-item" data-page="reports">
+        <span class="bottom-nav-icon">📈</span>
+        <span class="bottom-nav-label">گزارش</span>
+    </button>
+    <button class="bottom-nav-item" data-page="help">
+        <span class="bottom-nav-icon">❓</span>
+        <span class="bottom-nav-label">راهنما</span>
+    </button>
+</nav>
 
 <script src="script.js?v=36"></script>
 

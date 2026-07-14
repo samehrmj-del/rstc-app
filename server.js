@@ -9,6 +9,7 @@ const helmet = require('helmet');
 const cors = require('cors');
 
 const app = express();
+app.disable('x-powered-by');
 const PORT = process.env.PORT || 4000;
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -959,9 +960,6 @@ setInterval(() => {
     const now = new Date();
     if (now.getHours() === 2 && now.getMinutes() === 0) scheduledBackup();
 }, 60000);
-
-// ===== PDF EXPORT (client-side via jsPDF) =====
-const { buildMissionDecreeHTML } = require('./pdf_template');
 
 // ===== PDF EXPORT (client-side via jsPDF) =====
 // REMOVE server-side PDF generation completely
