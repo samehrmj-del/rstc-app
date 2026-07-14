@@ -548,6 +548,8 @@ function doLogout() {
     el('username').value = ''; el('password').value = '';
     el('login-error').style.display = 'none';
     el('nav-users').style.display = 'none'; el('nav-backup').style.display = 'none'; el('nav-options').style.display = 'none'; el('nav-audit').style.display = 'none'; const chatNav = el('nav-chat'); if (chatNav) chatNav.style.display = 'none';
+    const chatWidget = el('chat-widget'); if (chatWidget) chatWidget.classList.remove('chat-open');
+    _chatOpen = false; stopChatPolling();
 }
 
 // ===== OPTIONS MANAGEMENT =====
@@ -749,9 +751,8 @@ let _chatUserName = null;
 let _chatPollId = null;
 
 function openChat() {
-    const widget = el('chat-widget');
     _chatOpen = true;
-    widget.style.display = 'flex';
+    el('chat-widget').classList.add('chat-open');
     el('nav-chat').classList.add('active');
     loadChatUsers();
     startChatPolling();
@@ -759,15 +760,15 @@ function openChat() {
 
 function toggleChat() {
     const widget = el('chat-widget');
-    if (widget.style.display === 'none' || !widget.style.display) {
+    if (!widget.classList.contains('chat-open')) {
         _chatOpen = true;
-        widget.style.display = 'flex';
+        widget.classList.add('chat-open');
         el('nav-chat').classList.add('active');
         loadChatUsers();
         startChatPolling();
     } else {
         _chatOpen = false;
-        widget.style.display = 'none';
+        widget.classList.remove('chat-open');
         el('nav-chat').classList.remove('active');
         stopChatPolling();
     }

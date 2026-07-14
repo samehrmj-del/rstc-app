@@ -3500,11 +3500,14 @@ body.dark .help-card-header h3 { color: var(--text); }
     background:var(--white);
     border-radius:var(--radius);
     box-shadow:0 20px 60px rgba(0,0,0,0.15), 0 0 0 1px var(--border);
-    display:flex;
+    display:none;
     flex-direction:column;
     z-index:9999;
     overflow:hidden;
     font-family:var(--font);
+}
+.chat-widget.chat-open {
+    display:flex;
 }
 body.dark .chat-widget {
     background:rgba(30,41,59,0.98);
