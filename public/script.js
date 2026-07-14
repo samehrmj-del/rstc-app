@@ -525,10 +525,12 @@ async function doLogin() {
         if (hasPerm(currentUserPermissions, 'backup:view')) el('nav-backup').style.display = 'flex';
         if (hasPerm(currentUserPermissions, 'options:view')) el('nav-options').style.display = 'flex';
         if (hasPerm(currentUserPermissions, 'audit:view')) el('nav-audit').style.display = 'flex';
+        const chatNav = el('nav-chat');
+        if (chatNav) chatNav.style.display = 'flex';
         const aiWidget = el('ai-chat-widget');
         if (aiWidget) aiWidget.style.display = hasPerm(currentUserPermissions, 'ai_chat:view') ? 'flex' : 'none';
         _showPage('dashboard');
-        updateClock(); loadDashboard(); _startSessionTimer(); loadAllOptions(); checkAnnouncement(); requestNotificationPermission();
+        updateClock(); loadDashboard(); _startSessionTimer(); loadAllOptions(); checkAnnouncement(); requestNotificationPermission(); checkUnreadChat();
     } catch (e) { errEl.textContent = e.message; errEl.style.display = 'block'; }
     _setLoginButtonState(false);
 }
@@ -545,7 +547,7 @@ function doLogout() {
     el('login-page').style.display = 'flex';
     el('username').value = ''; el('password').value = '';
     el('login-error').style.display = 'none';
-    el('nav-users').style.display = 'none'; el('nav-backup').style.display = 'none'; el('nav-options').style.display = 'none'; el('nav-audit').style.display = 'none';
+    el('nav-users').style.display = 'none'; el('nav-backup').style.display = 'none'; el('nav-options').style.display = 'none'; el('nav-audit').style.display = 'none'; const chatNav = el('nav-chat'); if (chatNav) chatNav.style.display = 'none';
 }
 
 // ===== OPTIONS MANAGEMENT =====
@@ -738,6 +740,141 @@ function sendBrowserNotification(title, body, icon) {
         n.onclick = () => { window.focus(); n.close(); };
         setTimeout(() => n.close(), 8000);
     } catch (e) { console.warn('Notification failed:', e); }
+}
+
+// ===== CHAT =====
+let _chatOpen = false;
+let _chatUserId = null;
+let _chatUserName = null;
+let _chatPollId = null;
+
+function openChat() {
+    _chatOpen = true;
+    el('chat-body').style.display = 'flex';
+    el('nav-chat').classList.add('active');
+    loadChatUsers();
+    startChatPolling();
+}
+
+function toggleChat() {
+    const body = el('chat-body');
+    if (body.style.display === 'none' || !body.style.display) {
+        _chatOpen = true;
+        body.style.display = 'flex';
+        el('nav-chat').classList.add('active');
+        loadChatUsers();
+        startChatPolling();
+    } else {
+        _chatOpen = false;
+        body.style.display = 'none';
+        el('nav-chat').classList.remove('active');
+        stopChatPolling();
+    }
+}
+
+async function loadChatUsers() {
+    try {
+        const data = await api('/api/chat/users');
+        const list = el('chat-user-list');
+        if (!data.users || !data.users.length) {
+            list.innerHTML = '<div style="padding:12px;color:var(--text-muted);font-size:12px;text-align:center;">کاربری یافت نشد</div>';
+            return;
+        }
+        list.innerHTML = data.users.map(u => `
+            <div class="chat-user-item ${_chatUserId === u.id ? 'active' : ''}" onclick="selectChatUser(${u.id}, '${_esc(u.username)}')">
+                <div class="chat-user-avatar">${u.username[0].toUpperCase()}</div>
+                <div class="chat-user-name">${_esc(u.username)}</div>
+            </div>
+        `).join('');
+    } catch (e) {
+        console.error('loadChatUsers failed:', e);
+    }
+}
+
+async function selectChatUser(userId, userName) {
+    _chatUserId = userId;
+    _chatUserName = userName;
+    el('chat-placeholder').style.display = 'none';
+    el('chat-messages').style.display = 'flex';
+    el('chat-input-area').style.display = 'flex';
+    document.querySelector('.chat-user-item.active')?.classList.remove('active');
+    event.currentTarget.classList.add('active');
+    await loadChatMessages(userId);
+}
+
+async function loadChatMessages(userId) {
+    try {
+        const data = await api(`/api/chat/messages?userId=${userId}`);
+        const container = el('chat-messages');
+        if (!data.messages || !data.messages.length) {
+            container.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-size:12px;padding:20px;">هنوز پیامی تبادل نشده</div>';
+            return;
+        }
+        container.innerHTML = data.messages.map(m => {
+            const isMe = m.sender_id === parseInt(getCurrentUserId());
+            return `<div class="chat-msg ${isMe ? 'sent' : 'received'}">
+                <div>${_esc(m.message)}</div>
+                <div class="chat-msg-time">${_formatTime(m.created_at)}</div>
+            </div>`;
+        }).join('');
+        container.scrollTop = container.scrollHeight;
+    } catch (e) {
+        console.error('loadChatMessages failed:', e);
+    }
+}
+
+async function sendChatMessage() {
+    const input = el('chat-message-input');
+    const text = input.value.trim();
+    if (!text || !_chatUserId) return;
+    try {
+        await api('/api/chat/send', { method: 'POST', body: JSON.stringify({ receiver_id: _chatUserId, receiver_name: _chatUserName, message: text }) });
+        input.value = '';
+        await loadChatMessages(_chatUserId);
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+
+el('chat-message-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); }
+});
+
+async function checkUnreadChat() {
+    try {
+        const data = await api('/api/chat/unread-count');
+        const badge = el('chat-badge');
+        if (data.count > 0) {
+            badge.textContent = data.count > 99 ? '99+' : data.count;
+            badge.style.display = 'inline';
+        } else {
+            badge.style.display = 'none';
+        }
+    } catch (e) { console.warn('Unread check failed:', e); }
+}
+
+function startChatPolling() {
+    stopChatPolling();
+    _chatPollId = setInterval(async () => {
+        await checkUnreadChat();
+        if (_chatOpen && _chatUserId) {
+            await loadChatMessages(_chatUserId);
+        }
+    }, 3000);
+}
+
+function stopChatPolling() {
+    if (_chatPollId) { clearInterval(_chatPollId); _chatPollId = null; }
+}
+
+function getCurrentUserId() {
+    return (window.currentUser && window.currentUser.id) ? window.currentUser.id : null;
+}
+
+function _formatTime(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' });
 }
 
 const _fieldIcons = { emp_type:'👔', last_degree:'🎓', mission_type:'📋', device_type:'🔧', repair_type:'🛠️', region:'📍', announcements:'📢' };

@@ -146,6 +146,9 @@
                 <li class="nav-item" id="nav-audit" style="display:none;" data-page="audit">
                     <span class="nav-icon">📋</span><span>لاگ فعالیت‌ها</span>
                 </li>
+                <li class="nav-item" id="nav-chat" style="display:none;" onclick="openChat()">
+                    <span class="nav-icon">💬</span><span>پیام‌رسانی</span>
+                </li>
             </ul>
         </nav>
         <div class="sidebar-footer">
@@ -1331,6 +1334,29 @@
         <div class="sig-box"><p>امضای کارمند</p><div class="sig-line"></div></div>
         <div class="sig-box"><p>تایید مدیر مستقیم</p><div class="sig-line"></div></div>
         <div class="sig-box"><p>مهر و امضای مدیریت منابع انسانی</p><div class="sig-line"></div></div>
+    </div>
+</div>
+
+<!-- Chat Widget -->
+<div id="chat-widget" class="chat-widget">
+    <div class="chat-header" onclick="toggleChat()">
+        <span class="chat-title">💬 پیام‌رسانی</span>
+        <span class="chat-badge" id="chat-badge" style="display:none;">0</span>
+        <button class="chat-close" onclick="event.stopPropagation(); toggleChat()">✕</button>
+    </div>
+    <div class="chat-body" id="chat-body" style="display:none;">
+        <div class="chat-sidebar" id="chat-sidebar">
+            <div class="chat-sidebar-header">گفتگوها</div>
+            <div class="chat-user-list" id="chat-user-list"></div>
+        </div>
+        <div class="chat-main" id="chat-main">
+            <div class="chat-placeholder" id="chat-placeholder">یک گفتگو را انتخاب کنید</div>
+            <div class="chat-messages" id="chat-messages" style="display:none;"></div>
+            <div class="chat-input-area" id="chat-input-area" style="display:none;">
+                <textarea id="chat-message-input" placeholder="پیام خود را بنویسید..." rows="2"></textarea>
+                <button class="chat-send-btn" onclick="sendChatMessage()">ارسال</button>
+            </div>
+        </div>
     </div>
 </div>
 
