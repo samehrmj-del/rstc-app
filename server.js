@@ -28,8 +28,7 @@ const MODULES = {
     USERS: 'users',
     OPTIONS: 'options',
     AUDIT: 'audit',
-    AI_CHAT: 'ai_chat',
-    ANNOUNCEMENTS: 'announcements'
+    AI_CHAT: 'ai_chat'
 };
 
 const ACTIONS = {
@@ -60,11 +59,7 @@ const PERMISSIONS = {
     OPTIONS_VIEW: `${MODULES.OPTIONS}:${ACTIONS.VIEW}`,
     OPTIONS_EDIT: `${MODULES.OPTIONS}:${ACTIONS.EDIT}`,
     AUDIT_VIEW: `${MODULES.AUDIT}:${ACTIONS.VIEW}`,
-    AI_CHAT_VIEW: `${MODULES.AI_CHAT}:${ACTIONS.VIEW}`,
-    ANNOUNCEMENTS_VIEW: `${MODULES.ANNOUNCEMENTS}:${ACTIONS.VIEW}`,
-    ANNOUNCEMENTS_CREATE: `${MODULES.ANNOUNCEMENTS}:${ACTIONS.CREATE}`,
-    ANNOUNCEMENTS_EDIT: `${MODULES.ANNOUNCEMENTS}:${ACTIONS.EDIT}`,
-    ANNOUNCEMENTS_DELETE: `${MODULES.ANNOUNCEMENTS}:${ACTIONS.DELETE}`
+    AI_CHAT_VIEW: `${MODULES.AI_CHAT}:${ACTIONS.VIEW}`
 };
 
 const MODULE_LABELS = {
@@ -76,8 +71,7 @@ const MODULE_LABELS = {
     [MODULES.USERS]: 'کاربران سیستم',
     [MODULES.OPTIONS]: 'گزینه‌های سیستم',
     [MODULES.AUDIT]: 'لاگ فعالیت‌ها',
-    [MODULES.AI_CHAT]: 'دستیار هوشمند',
-    [MODULES.ANNOUNCEMENTS]: 'اطلاعیه‌ها'
+    [MODULES.AI_CHAT]: 'دستیار هوشمند'
 };
 
 const ACTION_LABELS = {
@@ -94,23 +88,20 @@ const ROLE_PERMISSIONS = {
         PERMISSIONS.PERSONNEL_VIEW, PERMISSIONS.PERSONNEL_CREATE, PERMISSIONS.PERSONNEL_EDIT,
         PERMISSIONS.MISSIONS_VIEW, PERMISSIONS.MISSIONS_CREATE, PERMISSIONS.MISSIONS_EDIT,
         PERMISSIONS.REPORTS_VIEW,
-        PERMISSIONS.AI_CHAT_VIEW,
-        PERMISSIONS.ANNOUNCEMENTS_VIEW
+        PERMISSIONS.AI_CHAT_VIEW
     ],
     operator: [
         PERMISSIONS.DASHBOARD_VIEW,
         PERMISSIONS.MISSIONS_VIEW, PERMISSIONS.MISSIONS_CREATE, PERMISSIONS.MISSIONS_EDIT,
         PERMISSIONS.REPORTS_VIEW,
-        PERMISSIONS.AI_CHAT_VIEW,
-        PERMISSIONS.ANNOUNCEMENTS_VIEW
+        PERMISSIONS.AI_CHAT_VIEW
     ],
     viewer: [
         PERMISSIONS.DASHBOARD_VIEW,
         PERMISSIONS.PERSONNEL_VIEW,
         PERMISSIONS.MISSIONS_VIEW,
         PERMISSIONS.REPORTS_VIEW,
-        PERMISSIONS.AI_CHAT_VIEW,
-        PERMISSIONS.ANNOUNCEMENTS_VIEW
+        PERMISSIONS.AI_CHAT_VIEW
     ]
 };
 
@@ -371,16 +362,6 @@ async function initializeDatabase() {
             created_at TEXT DEFAULT (datetime('now'))
         )`);
         await dbRun("CREATE INDEX IF NOT EXISTS idx_audit_created ON AuditLog(created_at)");
-
-        await dbRun(`CREATE TABLE IF NOT EXISTS Announcements (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            message TEXT NOT NULL,
-            type TEXT DEFAULT 'info',
-            is_active INTEGER DEFAULT 1,
-            created_at TEXT DEFAULT (datetime('now')),
-            updated_at TEXT DEFAULT (datetime('now'))
-        )`);
 
         await dbRun(`CREATE TABLE IF NOT EXISTS SystemOptions (
             field TEXT PRIMARY KEY,
@@ -942,57 +923,6 @@ app.delete('/api/options/:field/:index', authenticateToken, auditMiddleware('Opt
         all[field].options.splice(idx, 1);
         await writeOptionsField(field, all[field].label, all[field].options);
         res.json({ success: true, options: all[field].options });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// ===== ANNOUNCEMENTS API =====
-app.get('/api/announcements/active', authenticateToken, async (req, res) => {
-    try {
-        const row = await dbGet("SELECT * FROM Announcements WHERE is_active = 1 ORDER BY created_at DESC LIMIT 1");
-        res.json(row || null);
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.get('/api/announcements', authenticateToken, requirePermission(PERMISSIONS.ANNOUNCEMENTS_VIEW), async (req, res) => {
-    try {
-        const rows = await dbAll("SELECT * FROM Announcements ORDER BY created_at DESC");
-        res.json({ results: rows });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/announcements', authenticateToken, requirePermission(PERMISSIONS.ANNOUNCEMENTS_CREATE), auditMiddleware('Announcement'), async (req, res) => {
-    try {
-        const { title, message, type } = req.body;
-        if (!title || !message) return res.status(400).json({ error: 'عنوان و متن اطلاعیه الزامی است' });
-        const result = await dbRun("INSERT INTO Announcements (title, message, type) VALUES (?, ?, ?)", [title, message, type || 'info']);
-        res.json({ success: true, id: result.id });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.put('/api/announcements/:id', authenticateToken, requirePermission(PERMISSIONS.ANNOUNCEMENTS_EDIT), auditMiddleware('Announcement'), async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { title, message, type, is_active } = req.body;
-        const row = await dbGet("SELECT * FROM Announcements WHERE id = ?", [id]);
-        if (!row) return res.status(404).json({ error: 'اطلاعیه یافت نشد' });
-        const updates = [];
-        const params = [];
-        if (title !== undefined) { updates.push('title = ?'); params.push(title); }
-        if (message !== undefined) { updates.push('message = ?'); params.push(message); }
-        if (type !== undefined) { updates.push('type = ?'); params.push(type); }
-        if (is_active !== undefined) { updates.push('is_active = ?'); params.push(is_active ? 1 : 0); }
-        updates.push("updated_at = datetime('now')");
-        params.push(id);
-        await dbRun(`UPDATE Announcements SET ${updates.join(', ')} WHERE id = ?`, params);
-        res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.delete('/api/announcements/:id', authenticateToken, requirePermission(PERMISSIONS.ANNOUNCEMENTS_DELETE), auditMiddleware('Announcement'), async (req, res) => {
-    try {
-        const { id } = req.params;
-        await dbRun("DELETE FROM Announcements WHERE id = ?", [id]);
-        res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
