@@ -450,7 +450,7 @@ app.post('/api/login', rateLimitLogin, async (req, res) => {
         await dbRun("UPDATE Users SET last_login = ?, login_count = login_count + 1 WHERE id = ?", [now, user.id]);
         const permissions = deserializePermissions(user.permissions);
         const token = jwt.sign({ id: user.id, username: user.username, role: user.role, permissions }, JWT_SECRET, { expiresIn: '8h' });
-        res.json({ success: true, token, role: user.role, username: user.username, permissions });
+        res.json({ success: true, token, id: user.id, role: user.role, username: user.username, permissions });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

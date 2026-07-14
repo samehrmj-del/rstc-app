@@ -514,6 +514,7 @@ async function doLogin() {
     try {
         const data = await api('/api/login', { method: 'POST', body: JSON.stringify({ username, password }) });
         setToken(data.token); currentUserRole = data.role; currentUsername = data.username; currentUserPermissions = data.permissions || [];
+        window.currentUser = { id: data.id, username: data.username, role: data.role };
         if (window.stopLoginCanvas) window.stopLoginCanvas();
         document.body.classList.add('logged-in');
         el('login-page').style.display = 'none';
