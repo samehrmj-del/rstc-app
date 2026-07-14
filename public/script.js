@@ -749,24 +749,25 @@ let _chatUserName = null;
 let _chatPollId = null;
 
 function openChat() {
+    const widget = el('chat-widget');
     _chatOpen = true;
-    el('chat-body').style.display = 'flex';
+    widget.style.display = 'flex';
     el('nav-chat').classList.add('active');
     loadChatUsers();
     startChatPolling();
 }
 
 function toggleChat() {
-    const body = el('chat-body');
-    if (body.style.display === 'none' || !body.style.display) {
+    const widget = el('chat-widget');
+    if (widget.style.display === 'none' || !widget.style.display) {
         _chatOpen = true;
-        body.style.display = 'flex';
+        widget.style.display = 'flex';
         el('nav-chat').classList.add('active');
         loadChatUsers();
         startChatPolling();
     } else {
         _chatOpen = false;
-        body.style.display = 'none';
+        widget.style.display = 'none';
         el('nav-chat').classList.remove('active');
         stopChatPolling();
     }
