@@ -1,0 +1,1840 @@
+openapi: 3.1.0
+info:
+    title: RSTC API
+    version: 1.0.0
+    description: REST API for RSTC application.
+servers:
+    - url: /api
+paths:
+    /health:
+        get:
+            tags:
+                - Health
+            summary: Health check
+            responses:
+                '200':
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    ok:
+                                        type: boolean
+                                    time:
+                                        type: string
+                                        format: date-time
+                            examples:
+                                success:
+                                    value:
+                                        ok: true
+                                        time: '2026-07-27T00:11:46.000Z'
+    /login:
+        post:
+            tags:
+                - Authentication
+            summary: User login
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/LoginRequest'
+                        examples:
+                            admin:
+                                value:
+                                    username: admin
+                                    password: admin123
+            responses:
+                '200':
+                    description: Login successful
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/LoginResponse'
+                            examples:
+                                success:
+                                    value:
+                                        success: true
+                                        token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9
+                                        role: admin
+                                        username: admin
+                                        permissions:
+                                            - users:view
+                                            - users:create
+                                            - users:edit
+                                            - users:delete
+                                            - personnel:view
+                                            - personnel:create
+                                            - personnel:edit
+                                            - personnel:delete
+                                            - missions:view
+                                            - missions:create
+                                            - missions:edit
+                                            - missions:delete
+                                            - backup:view
+                                            - backup:create
+                                            - backup:restore
+                                            - audit:view
+                '400':
+                    $ref: '#/components/responses/Error'
+                    description: Missing fields
+                '401':
+                    $ref: '#/components/responses/Error'
+                    description: Invalid credentials
+                '403':
+                    $ref: '#/components/responses/Error'
+                    description: Account disabled
+                '500':
+                    $ref: '#/components/responses/Error'
+                    description: Server error
+    /users/self/self-password:
+        put:
+            tags:
+                - Users
+            summary: Update own password
+            security:
+                - bearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - currentPassword
+                                - newPassword
+                            properties:
+                                currentPassword:
+                                    type: string
+                                newPassword:
+                                    type: string
+                            examples:
+                                change:
+                                    value:
+                                        currentPassword: OldPass1
+                                        newPassword: NewPass1
+            responses:
+                '200':
+                    description: Password updated
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SuccessResponse'
+                            examples:
+                                success:
+                                    value:
+                                        success: true
+                '400':
+                    $ref: '#/components/responses/Error'
+                    description: Invalid input
+                '401':
+                    $ref: '#/components/responses/Error'
+                    description: Current password incorrect
+                '404':
+                    $ref: '#/components/responses/Error'
+                    description: User not found
+                '500':
+                    $ref: '#/components/responses/Error'
+                    description: Server error
+    /users:
+        get:
+            tags:
+                - Users
+            summary: List all users
+            security:
+                - bearerAuth: []
+            responses:
+                '200':
+                    description: Users list
+                    content:
+                        application/json:
+                            schema:
+                                type: array
+                                items:
+                                    $ref: '#/components/schemas/User'
+                            examples:
+                                list:
+                                    value:
+                                        - id: 1
+                                          username: admin
+                                          role: admin
+                                          permissions:
+                                              - users:view
+                                          status: active
+                                          last_login: '2026-07-27T00:00:00.000Z'
+                                          login_count: 1
+                                          created_at: '2026-07-27T00:00:00.000Z'
+                '500':
+                    $ref: '#/components/responses/Error'
+        post:
+            tags:
+                - Users
+            summary: Create user
+            security:
+                - bearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UserCreate'
+                        examples:
+                            admin:
+                                value:
+                                    username: newuser
+                                    password: Pass1234
+                                    role: user
+                                    permissions:
+                                        - users:view
+            responses:
+                '200':
+                    description: User created
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SuccessResponse'
+                '400':
+                    $ref: '#/components/responses/Error'
+                '500':
+                    $ref: '#/components/responses/Error'
+    /users/{id}:
+        put:
+            tags:
+                - Users
+            summary: Update user
+            security:
+                - bearerAuth: []
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: integer
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UserUpdate'
+                        examples:
+                            update:
+                                value:
+                                    username: updateduser
+                                    role: user
+                                    status: active
+            responses:
+                '200':
+                    description: User updated
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SuccessResponse'
+                '400':
+                    $ref: '#/components/responses/Error'
+                '404':
+                    $ref: '#/components/responses/Error'
+                '500':
+                    $ref: '#/components/responses/Error'
+        delete:
+            tags:
+                - Users
+            summary: Delete user
+            security:
+                - bearerAuth: []
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: integer
+            responses:
+                '200':
+                    description: User deleted
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SuccessResponse'
+                '400':
+                    $ref: '#/components/responses/Error'
+                '500':
+                    $ref: '#/components/responses/Error'
+    /users/{id}/password:
+        put:
+            tags:
+                - Users
+            summary: Update user password
+            security:
+                - bearerAuth: []
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: integer
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - password
+                            properties:
+                                password:
+                                    type: string
+                                    example: NewPass123
+            responses:
+                '200':
+                    description: Password updated
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SuccessResponse'
+                '400':
+                    $ref: '#/components/responses/Error'
+                '500':
+                    $ref: '#/components/responses/Error'
+    /personnel:
+        post:
+            tags:
+                - Personnel
+            summary: Create personnel record
+            security:
+                - bearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/PersonnelCreate'
+                        examples:
+                            create:
+                                value:
+                                    name: علی
+                                    lname: رضایی
+                                    father_name: محمد
+                                    national_id: '0123456789'
+                                    emp_num: '1001'
+                                    hire_date: '1403-01-01'
+                                    emp_type: Permanent
+                                    org_post: IT
+                                    job_title: برنامه‌نویس
+                                    last_degree: کارشناسی
+                                    phone: '09123456789'
+                                    address: تهران
+                                    status: فعال
+                                    notes: '-'
+            responses:
+                '200':
+                    description: Personnel created
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SuccessResponse'
+                '400':
+                    $ref: '#/components/responses/Error'
+                '500':
+                    $ref: '#/components/responses/Error'
+        get:
+            tags:
+                - Personnel
+            summary: List personnel
+            security:
+                - bearerAuth: []
+            responses:
+                '200':
+                    description: Personnel list
+                    content:
+                        application/json:
+                            schema:
+                                type: array
+                                items:
+                                    $ref: '#/components/schemas/Personnel'
+                '500':
+                    $ref: '#/components/responses/Error'
+    /personnel/{id}:
+        put:
+            tags:
+                - Personnel
+            summary: Update personnel
+            security:
+                - bearerAuth: []
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: integer
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/PersonnelUpdate'
+                        examples:
+                            update:
+                                value:
+                                    name: علی
+                                    lname: رضایی
+                                    father_name: محمد
+                                    national_id: '0123456789'
+                                    emp_num: '1001'
+                                    hire_date: '1403-01-01'
+                                    emp_type: Permanent
+                                    org_post: IT
+                                    job_title: برنامه‌نویس
+                                    last_degree: کارشناسی
+                                    phone: '09123456789'
+                                    address: تهران
+                                    status: فعال
+                                    notes: '-'
+            responses:
+                '200':
+                    description: Personnel updated
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SuccessResponse'
+                '400':
+                    $ref: '#/components/responses/Error'
+                '404':
+                    $ref: '#/components/responses/Error'
+                '500':
+                    $ref: '#/components/responses/Error'
+        delete:
+            tags:
+                - Personnel
+            summary: Delete personnel
+            security:
+                - bearerAuth: []
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: integer
+            responses:
+                '200':
+                    description: Personnel deleted
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SuccessResponse'
+                '500':
+                    $ref: '#/components/responses/Error'
+    /personnel/bulk:
+        post:
+            tags:
+                - Personnel
+            summary: Bulk import personnel
+            security:
+                - bearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: array
+                            items:
+                                $ref: '#/components/schemas/PersonnelCreate'
+                            maxItems: 1000
+                        examples:
+                            bulk:
+                                value:
+                                    - name: علی
+                                      lname: رضایی
+                                      father_name: محمد
+                                      national_id: '0123456789'
+                                      emp_num: '1001'
+                                      hire_date: '1403-01-01'
+                                      emp_type: Permanent
+                                      org_post: IT
+                                      job_title: برنامه‌نویس
+                                      last_degree: کارشناسی
+                                      phone: '09123456789'
+                                      address: تهران
+                                      status: فعال
+                                      notes: '-'
+            responses:
+                '200':
+                    description: Import result
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    success:
+                                        type: boolean
+                                    imported:
+                                        type: integer
+                                    failed:
+                                        type: integer
+                                    errors:
+                                        type: array
+                                        items:
+                                            type: string
+                            examples:
+                                result:
+                                    value:
+                                        success: true
+                                        imported: 1
+                                        failed: 0
+                                        errors: []
+                '400':
+                    $ref: '#/components/responses/Error'
+                '500':
+                    $ref: '#/components/responses/Error'
+    /missions:
+        post:
+            tags:
+                - Missions
+            summary: Create mission
+            security:
+                - bearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/MissionCreate'
+                        examples:
+                            create:
+                                value:
+                                    name: ماموریت استان تهران
+                                    lname: رضایی
+                                    start_date: '1403-07-01'
+                                    end_date: '1403-07-05'
+                                    issue_date: '1403-06-28'
+                                    mission_type: Repair
+                                    region: تهران
+                                    location: مرکزی
+                                    subject: تعمیر تجهیزات
+                                    device_type: Laptop
+                                    device_serial: ABC123
+                                    duration: 5
+                                    overtime_hours: 0
+                                    is_single: true
+                                    is_group: false
+                                    is_supplied: true
+                                    is_unsupplied: false
+                                    is_issued: false
+                                    is_extended: false
+                                    is_gov: false
+                                    is_plane: false
+                                    is_train: false
+                                    is_agency: false
+                                    is_bus: false
+                                    is_personal: false
+            responses:
+                '200':
+                    description: Mission created
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    success:
+                                        type: boolean
+                                    decree_num:
+                                        type: string
+                                        example: RSTC-2026-07-27-0001
+                        examples:
+                            success:
+                                value:
+                                    success: true
+                                    decree_num: RSTC-2026-07-27-0001
+                '400':
+                    $ref: '#/components/responses/Error'
+                '500':
+                    $ref: '#/components/responses/Error'
+        get:
+            tags:
+                - Missions
+            summary: List missions
+            security:
+                - bearerAuth: []
+            responses:
+                '200':
+                    description: Missions list
+                    content:
+                        application/json:
+                            schema:
+                                type: array
+                                items:
+                                    $ref: '#/components/schemas/Mission'
+                '500':
+                    $ref: '#/components/responses/Error'
+    /missions/{id}:
+        put:
+            tags:
+                - Missions
+            summary: Update mission
+            security:
+                - bearerAuth: []
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: integer
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/MissionUpdate'
+                        examples:
+                            update:
+                                value:
+                                    name: ماموریت به روز شده
+                                    start_date: '1403-07-02'
+                                    end_date: '1403-07-06'
+                                    issue_date: '1403-06-29'
+            responses:
+                '200':
+                    description: Mission updated
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SuccessResponse'
+                '400':
+                    $ref: '#/components/responses/Error'
+                '500':
+                    $ref: '#/components/responses/Error'
+        delete:
+            tags:
+                - Missions
+            summary: Delete mission
+            security:
+                - bearerAuth: []
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: integer
+            responses:
+                '200':
+                    description: Mission deleted
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SuccessResponse'
+                '500':
+                    $ref: '#/components/responses/Error'
+        get:
+            tags:
+                - Missions
+            summary: PDF export (client-side only)
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: integer
+            responses:
+                '404':
+                    description: PDF export is client-side only
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ErrorResponse'
+                            examples:
+                                notFound:
+                                    value:
+                                        error: 'PDF export is now client-side only. Use jsPDF for PDF generation.'
+    /reports/missions:
+        post:
+            tags:
+                - Reports
+            summary: Search missions
+            security:
+                - bearerAuth: []
+            requestBody:
+                required: false
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            properties:
+                                name:
+                                    type: string
+                                lname:
+                                    type: string
+                                emp_num:
+                                    type: string
+                                decree_num:
+                                    type: string
+                                region:
+                                    type: string
+                                mission_type:
+                                    type: string
+                                location:
+                                    type: string
+                                start_date_from:
+                                    type: string
+                                start_date_to:
+                                    type: string
+                                end_date_from:
+                                    type: string
+                                end_date_to:
+                                    type: string
+                                issue_date_from:
+                                    type: string
+                                issue_date_to:
+                                    type: string
+                        examples:
+                            filter:
+                                value:
+                                    region: تهران
+                                    mission_type: Repair
+            responses:
+                '200':
+                    description: Search results
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    results:
+                                        type: array
+                                        items:
+                                            $ref: '#/components/schemas/Mission'
+                                    total:
+                                        type: integer
+                            examples:
+                                result:
+                                    value:
+                                        results: []
+                                        total: 0
+                '500':
+                    $ref: '#/components/responses/Error'
+    /dashboard:
+        get:
+            tags:
+                - Dashboard
+            summary: Get dashboard data
+            security:
+                - bearerAuth: []
+            responses:
+                '200':
+                    description: Dashboard statistics
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/DashboardData'
+                            examples:
+                                stats:
+                                    value:
+                                        total: 10
+                                        active: 8
+                                        inactive: 2
+                                        missionCount: 5
+                                        userCount: 2
+                                        byType:
+                                            - label: پیمانکاری
+                                              count: 5
+                                        byDegree:
+                                            - label: کارشناسی
+                                              count: 10
+                                        byRegion:
+                                            - label: تهران
+                                              count: 5
+                                        byMissionType:
+                                            - label: Repair
+                                              count: 5
+                                        singleVsGroup:
+                                            singleCount: 3
+                                            groupCount: 2
+                                        suppliedVsUn:
+                                            supplied: 4
+                                            unsupplied: 1
+                                        recentPersonnel: []
+                                        recentMissions: []
+                '500':
+                    $ref: '#/components/responses/Error'
+    /backup:
+        get:
+            tags:
+                - Backup
+            summary: Download database backup
+            security:
+                - bearerAuth: []
+            responses:
+                '200':
+                    description: Database backup file
+                    content:
+                        application/octet-stream:
+                            schema:
+                                type: string
+                                format: binary
+                            examples:
+                                backup:
+                                    value: 'binary data'
+                '404':
+                    $ref: '#/components/responses/Error'
+                '500':
+                    $ref: '#/components/responses/Error'
+    /backups:
+        get:
+            tags:
+                - Backup
+            summary: List backup files
+            security:
+                - bearerAuth: []
+            responses:
+                '200':
+                    description: Backup files list
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    backups:
+                                        type: array
+                                        items:
+                                            $ref: '#/components/schemas/Backup'
+                                    settings:
+                                        type: object
+                                        properties:
+                                            maxBackups:
+                                                type: integer
+                                            scheduleHour:
+                                                type: integer
+                            examples:
+                                list:
+                                    value:
+                                        backups: []
+                                        settings:
+                                            maxBackups: 30
+                                            scheduleHour: 2
+                '500':
+                    $ref: '#/components/responses/Error'
+    /backups/{name}:
+        get:
+            tags:
+                - Backup
+            summary: Download specific backup file
+            security:
+                - bearerAuth: []
+            parameters:
+                - name: name
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+            responses:
+                '200':
+                    description: Backup file
+                    content:
+                        application/octet-stream:
+                            schema:
+                                type: string
+                                format: binary
+                '404':
+                    $ref: '#/components/responses/Error'
+                '500':
+                    $ref: '#/components/responses/Error'
+        delete:
+            tags:
+                - Backup
+            summary: Delete backup file
+            security:
+                - bearerAuth: []
+            parameters:
+                - name: name
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+            responses:
+                '200':
+                    description: Backup deleted
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    success:
+                                        type: boolean
+                                    message:
+                                        type: string
+                            examples:
+                                deleted:
+                                    value:
+                                        success: true
+                                        message: 'فایل پشتیبان حذف شد.'
+                '404':
+                    $ref: '#/components/responses/Error'
+                '500':
+                    $ref: '#/components/responses/Error'
+    /backups/validate:
+        post:
+            tags:
+                - Backup
+            summary: Validate backup file
+            security:
+                - bearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/octet-stream:
+                        schema:
+                            type: string
+                            format: binary
+            responses:
+                '200':
+                    description: Validation result
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    valid:
+                                        type: boolean
+                                    sizeMB:
+                                        type: string
+                                    tables:
+                                        type: array
+                                        items:
+                                            type: string
+                                    counts:
+                                        type: object
+                                    integrity:
+                                        type: string
+                                    pageCount:
+                                        type: integer
+                                    pageSize:
+                                        type: integer
+                                    estimatedSizeMB:
+                                        type: string
+                            examples:
+                                valid:
+                                    value:
+                                        valid: true
+                                        sizeMB: '12.34'
+                                        tables:
+                                            - Personnel
+                                            - Missions
+                                        counts:
+                                            Personnel: 100
+                                            Missions: 20
+                                        integrity: ok
+                                        pageCount: 500
+                                        pageSize: 4096
+                                        estimatedSizeMB: '1.95'
+                '400':
+                    $ref: '#/components/responses/Error'
+                '500':
+                    $ref: '#/components/responses/Error'
+    /restore:
+        post:
+            tags:
+                - Backup
+            summary: Restore database backup
+            security:
+                - bearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/octet-stream:
+                        schema:
+                            type: string
+                            format: binary
+            responses:
+                '200':
+                    description: Restore successful
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    success:
+                                        type: boolean
+                                    message:
+                                        type: string
+                            examples:
+                                restored:
+                                    value:
+                                        success: true
+                                        message: 'بازیابی با موفقیت انجام شد و اطلاعات جدید فعال شدند.'
+                '500':
+                    $ref: '#/components/responses/Error'
+    /options:
+        get:
+            tags:
+                - Options
+            summary: List all options
+            security:
+                - bearerAuth: []
+            responses:
+                '200':
+                    description: Options map
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                additionalProperties:
+                                    $ref: '#/components/schemas/Option'
+                            examples:
+                                options:
+                                    value:
+                                        emp_type:
+                                            label: نوع استخدام
+                                            options:
+                                                - Permanent
+                                                - Contractual
+                                        mission_type:
+                                            label: نوع ماموریت
+                                            options:
+                                                - Repair
+                                                - Install
+                '500':
+                    $ref: '#/components/responses/Error'
+    /options/{field}:
+        get:
+            tags:
+                - Options
+            summary: Get option by field
+            security:
+                - bearerAuth: []
+            parameters:
+                - name: field
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+            responses:
+                '200':
+                    description: Option detail
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Option'
+                            examples:
+                                option:
+                                    value:
+                                        label: نوع استخدام
+                                        options:
+                                            - Permanent
+                                            - Contractual
+                '404':
+                    $ref: '#/components/responses/Error'
+                '500':
+                    $ref: '#/components/responses/Error'
+        post:
+            tags:
+                - Options
+            summary: Create option value
+            security:
+                - bearerAuth: []
+            parameters:
+                - name: field
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - value
+                            properties:
+                                label:
+                                    type: string
+                                value:
+                                    type: string
+                            examples:
+                                create:
+                                    value:
+                                        label: نوع استخدام
+                                        value: Permanent
+            responses:
+                '200':
+                    description: Option created
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    success:
+                                        type: boolean
+                                    options:
+                                        type: array
+                                        items:
+                                            type: string
+                            examples:
+                                created:
+                                    value:
+                                        success: true
+                                        options:
+                                            - Permanent
+                '400':
+                    $ref: '#/components/responses/Error'
+                '500':
+                    $ref: '#/components/responses/Error'
+        put:
+            tags:
+                - Options
+            summary: Update option value
+            security:
+                - bearerAuth: []
+            parameters:
+                - name: field
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - oldValue
+                                - newValue
+                            properties:
+                                oldValue:
+                                    type: string
+                                newValue:
+                                    type: string
+                                label:
+                                    type: string
+                            examples:
+                                update:
+                                    value:
+                                        oldValue: Permanent
+                                        newValue: FullTime
+                                        label: نوع استخدام
+            responses:
+                '200':
+                    description: Option updated
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    success:
+                                        type: boolean
+                                    options:
+                                        type: array
+                                        items:
+                                            type: string
+                '400':
+                    $ref: '#/components/responses/Error'
+                '404':
+                    $ref: '#/components/responses/Error'
+                '500':
+                    $ref: '#/components/responses/Error'
+    /options/{field}/{index}:
+        delete:
+            tags:
+                - Options
+            summary: Delete option value by index
+            security:
+                - bearerAuth: []
+            parameters:
+                - name: field
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                - name: index
+                  in: path
+                  required: true
+                  schema:
+                      type: integer
+            responses:
+                '200':
+                    description: Option deleted
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    success:
+                                        type: boolean
+                                    options:
+                                        type: array
+                                        items:
+                                            type: string
+                '400':
+                    $ref: '#/components/responses/Error'
+                '404':
+                    $ref: '#/components/responses/Error'
+                '500':
+                    $ref: '#/components/responses/Error'
+    /audit:
+        get:
+            tags:
+                - Audit
+            summary: Search audit logs
+            security:
+                - bearerAuth: []
+            parameters:
+                - name: entity
+                  in: query
+                  schema:
+                      type: string
+                - name: username
+                  in: query
+                  schema:
+                      type: string
+                - name: limit
+                  in: query
+                  schema:
+                      type: integer
+                      default: 100
+            responses:
+                '200':
+                    description: Audit logs
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    results:
+                                        type: array
+                                        items:
+                                            $ref: '#/components/schemas/AuditLog'
+                                    total:
+                                        type: integer
+                            examples:
+                                logs:
+                                    value:
+                                        results: []
+                                        total: 0
+                '500':
+                    $ref: '#/components/responses/Error'
+    /ai/ask:
+        post:
+            tags:
+                - AI
+            summary: Ask AI question
+            security:
+                - bearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/AIRequest'
+                        examples:
+                            ask:
+                                value:
+                                    question: نحوه بکاپ گیری چطور است؟
+            responses:
+                '200':
+                    description: AI response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/AIResponse'
+                            examples:
+                                answer:
+                                    value:
+                                        success: true
+                                        question: نحوه بکاپ گیری چطور است؟
+                                        answer: 'برای بکاپ گیری به منوی پشتیبان‌گیری مراجعه کنید.'
+                '400':
+                    $ref: '#/components/responses/Error'
+                '500':
+                    $ref: '#/components/responses/Error'
+components:
+    schemas:
+        LoginRequest:
+            type: object
+            required:
+                - username
+                - password
+            properties:
+                username:
+                    type: string
+                    example: admin
+                password:
+                    type: string
+                    example: admin123
+        LoginResponse:
+            type: object
+            properties:
+                success:
+                    type: boolean
+                token:
+                    type: string
+                role:
+                    type: string
+                username:
+                    type: string
+                permissions:
+                    type: array
+                    items:
+                        type: string
+            example:
+                success: true
+                token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9
+                role: admin
+                username: admin
+                permissions:
+                    - users:view
+                    - users:create
+                    - users:edit
+                    - users:delete
+                    - personnel:view
+                    - personnel:create
+                    - personnel:edit
+                    - personnel:delete
+                    - missions:view
+                    - missions:create
+                    - missions:edit
+                    - missions:delete
+                    - backup:view
+                    - backup:create
+                    - backup:restore
+                    - audit:view
+        User:
+            type: object
+            properties:
+                id:
+                    type: integer
+                username:
+                    type: string
+                role:
+                    type: string
+                permissions:
+                    type: array
+                    items:
+                        type: string
+                status:
+                    type: string
+                last_login:
+                    type: string
+                    format: date-time
+                login_count:
+                    type: integer
+                created_at:
+                    type: string
+                    format: date-time
+        UserCreate:
+            type: object
+            required:
+                - username
+                - password
+            properties:
+                username:
+                    type: string
+                    example: newuser
+                password:
+                    type: string
+                    example: Pass1234
+                role:
+                    type: string
+                    example: user
+                permissions:
+                    type: array
+                    items:
+                        type: string
+                    example:
+                        - users:view
+        UserUpdate:
+            type: object
+            properties:
+                username:
+                    type: string
+                    example: updateduser
+                role:
+                    type: string
+                    example: user
+                status:
+                    type: string
+                    example: active
+                permissions:
+                    type: array
+                    items:
+                        type: string
+        Personnel:
+            type: object
+            properties:
+                id:
+                    type: integer
+                name:
+                    type: string
+                lname:
+                    type: string
+                father_name:
+                    type: string
+                national_id:
+                    type: string
+                emp_num:
+                    type: string
+                hire_date:
+                    type: string
+                emp_type:
+                    type: string
+                org_post:
+                    type: string
+                job_title:
+                    type: string
+                last_degree:
+                    type: string
+                phone:
+                    type: string
+                address:
+                    type: string
+                status:
+                    type: string
+                notes:
+                    type: string
+        PersonnelCreate:
+            type: object
+            required:
+                - name
+                - lname
+                - national_id
+                - emp_num
+                - hire_date
+                - org_post
+                - job_title
+                - last_degree
+                - phone
+                - address
+            properties:
+                name:
+                    type: string
+                    example: علی
+                lname:
+                    type: string
+                    example: رضایی
+                father_name:
+                    type: string
+                    example: محمد
+                national_id:
+                    type: string
+                    example: '0123456789'
+                emp_num:
+                    type: string
+                    example: '1001'
+                hire_date:
+                    type: string
+                    example: '1403-01-01'
+                emp_type:
+                    type: string
+                    example: Permanent
+                org_post:
+                    type: string
+                    example: IT
+                job_title:
+                    type: string
+                    example: برنامه‌نویس
+                last_degree:
+                    type: string
+                    example: کارشناسی
+                phone:
+                    type: string
+                    example: '09123456789'
+                address:
+                    type: string
+                    example: تهران
+                status:
+                    type: string
+                    example: فعال
+                notes:
+                    type: string
+                    example: '-'
+        PersonnelUpdate:
+            type: object
+            required:
+                - name
+                - lname
+                - national_id
+                - emp_num
+                - hire_date
+                - org_post
+                - job_title
+                - last_degree
+                - phone
+                - address
+            properties:
+                name:
+                    type: string
+                lname:
+                    type: string
+                father_name:
+                    type: string
+                national_id:
+                    type: string
+                emp_num:
+                    type: string
+                hire_date:
+                    type: string
+                emp_type:
+                    type: string
+                org_post:
+                    type: string
+                job_title:
+                    type: string
+                last_degree:
+                    type: string
+                phone:
+                    type: string
+                address:
+                    type: string
+                status:
+                    type: string
+                notes:
+                    type: string
+        Mission:
+            type: object
+            properties:
+                id:
+                    type: integer
+                decree_num:
+                    type: string
+                name:
+                    type: string
+                lname:
+                    type: string
+                emp_num:
+                    type: string
+                job_title:
+                    type: string
+                mission_type:
+                    type: string
+                device_type:
+                    type: string
+                repair_type:
+                    type: string
+                region:
+                    type: string
+                location:
+                    type: string
+                subject:
+                    type: string
+                device_serial:
+                    type: string
+                duration:
+                    type: integer
+                overtime_hours:
+                    type: integer
+                start_date:
+                    type: string
+                end_date:
+                    type: string
+                issue_date:
+                    type: string
+                is_single:
+                    type: boolean
+                is_group:
+                    type: boolean
+                is_supplied:
+                    type: boolean
+                is_unsupplied:
+                    type: boolean
+                is_issued:
+                    type: boolean
+                is_extended:
+                    type: boolean
+                is_gov:
+                    type: boolean
+                is_plane:
+                    type: boolean
+                is_train:
+                    type: boolean
+                is_agency:
+                    type: boolean
+                is_bus:
+                    type: boolean
+                is_personal:
+                    type: boolean
+        MissionCreate:
+            type: object
+            required:
+                - name
+                - start_date
+                - end_date
+                - issue_date
+            properties:
+                name:
+                    type: string
+                lname:
+                    type: string
+                emp_num:
+                    type: string
+                job_title:
+                    type: string
+                mission_type:
+                    type: string
+                device_type:
+                    type: string
+                repair_type:
+                    type: string
+                region:
+                    type: string
+                location:
+                    type: string
+                subject:
+                    type: string
+                device_serial:
+                    type: string
+                duration:
+                    type: integer
+                overtime_hours:
+                    type: integer
+                start_date:
+                    type: string
+                end_date:
+                    type: string
+                issue_date:
+                    type: string
+                is_single:
+                    type: boolean
+                is_group:
+                    type: boolean
+                is_supplied:
+                    type: boolean
+                is_unsupplied:
+                    type: boolean
+                is_issued:
+                    type: boolean
+                is_extended:
+                    type: boolean
+                is_gov:
+                    type: boolean
+                is_plane:
+                    type: boolean
+                is_train:
+                    type: boolean
+                is_agency:
+                    type: boolean
+                is_bus:
+                    type: boolean
+                is_personal:
+                    type: boolean
+        MissionUpdate:
+            type: object
+            required:
+                - name
+                - start_date
+                - end_date
+                - issue_date
+            properties:
+                name:
+                    type: string
+                lname:
+                    type: string
+                emp_num:
+                    type: string
+                job_title:
+                    type: string
+                mission_type:
+                    type: string
+                device_type:
+                    type: string
+                repair_type:
+                    type: string
+                region:
+                    type: string
+                location:
+                    type: string
+                subject:
+                    type: string
+                device_serial:
+                    type: string
+                duration:
+                    type: integer
+                overtime_hours:
+                    type: integer
+                start_date:
+                    type: string
+                end_date:
+                    type: string
+                issue_date:
+                    type: string
+                is_single:
+                    type: boolean
+                is_group:
+                    type: boolean
+                is_supplied:
+                    type: boolean
+                is_unsupplied:
+                    type: boolean
+                is_issued:
+                    type: boolean
+                is_extended:
+                    type: boolean
+                is_gov:
+                    type: boolean
+                is_plane:
+                    type: boolean
+                is_train:
+                    type: boolean
+                is_agency:
+                    type: boolean
+                is_bus:
+                    type: boolean
+                is_personal:
+                    type: boolean
+        DashboardData:
+            type: object
+            properties:
+                total:
+                    type: integer
+                active:
+                    type: integer
+                inactive:
+                    type: integer
+                missionCount:
+                    type: integer
+                userCount:
+                    type: integer
+                byType:
+                    type: array
+                    items:
+                        type: object
+                        properties:
+                            label:
+                                type: string
+                            count:
+                                type: integer
+                byDegree:
+                    type: array
+                    items:
+                        type: object
+                        properties:
+                            label:
+                                type: string
+                            count:
+                                type: integer
+                byRegion:
+                    type: array
+                    items:
+                        type: object
+                        properties:
+                            label:
+                                type: string
+                            count:
+                                type: integer
+                byMissionType:
+                    type: array
+                    items:
+                        type: object
+                        properties:
+                            label:
+                                type: string
+                            count:
+                                type: integer
+                singleVsGroup:
+                    type: object
+                    properties:
+                        singleCount:
+                            type: integer
+                        groupCount:
+                            type: integer
+                suppliedVsUn:
+                    type: object
+                    properties:
+                        supplied:
+                            type: integer
+                        unsupplied:
+                            type: integer
+                recentPersonnel:
+                    type: array
+                    items:
+                        type: object
+                recentMissions:
+                    type: array
+                    items:
+                        type: object
+        Backup:
+            type: object
+            properties:
+                name:
+                    type: string
+                size:
+                    type: integer
+                sizeMB:
+                    type: string
+                modified:
+                    type: string
+                    format: date-time
+                modifiedJalali:
+                    type: string
+        Option:
+            type: object
+            properties:
+                label:
+                    type: string
+                options:
+                    type: array
+                    items:
+                        type: string
+        AuditLog:
+            type: object
+            properties:
+                id:
+                    type: integer
+                entity:
+                    type: string
+                action:
+                    type: string
+                username:
+                    type: string
+                details:
+                    type: string
+                created_at:
+                    type: string
+                    format: date-time
+        AIRequest:
+            type: object
+            required:
+                - question
+            properties:
+                question:
+                    type: string
+                    example: نحوه بکاپ گیری چطور است؟
+        AIResponse:
+            type: object
+            properties:
+                success:
+                    type: boolean
+                question:
+                    type: string
+                answer:
+                    type: string
+        SuccessResponse:
+            type: object
+            properties:
+                success:
+                    type: boolean
+        ErrorResponse:
+            type: object
+            properties:
+                error:
+                    type: string
+    responses:
+        Error:
+            description: Error response
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/ErrorResponse'
+                    examples:
+                        badRequest:
+                            value:
+                                error: 'Invalid request'
+                        unauthorized:
+                            value:
+                                error: 'دسترسی غیرمجاز! لطفاً ابتدا وارد شوید.'
+                        forbidden:
+                            value:
+                                error: 'دسترسی غیرمجاز'
+                        notFound:
+                            value:
+                                error: 'یافت نشد'
+                        serverError:
+                            value:
+                                error: 'خطای سرور'

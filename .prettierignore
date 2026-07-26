@@ -1,0 +1,9 @@
+node_modules
+dist
+build
+coverage
+tests
+public
+*.min.js
+*.bundle.js
+package-lock.json

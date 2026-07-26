@@ -1,0 +1,32 @@
+module.exports = {
+    testEnvironment: 'node',
+    coverageDirectory: 'coverage',
+    collectCoverage: true,
+    collectCoverageFrom: [
+        'src/**/*.js',
+        '!src/**/index.js',
+        '!src/infrastructure/database/schema.js',
+        '!src/app/**',
+        '!server.js',
+        '!src/infrastructure/database/initialize.js',
+        '!src/infrastructure/database/connection.js',
+        '!src/infrastructure/middleware/**',
+    ],
+    coverageThreshold: {
+        global: {
+            statements: 90,
+            branches: 85,
+            functions: 90,
+            lines: 90,
+        },
+    },
+    clearMocks: true,
+    setupFilesAfterEnv: ['<rootDir>/tests/setup/setup.js'],
+    globalSetup: '<rootDir>/tests/setup/globalSetup.js',
+    globalTeardown: '<rootDir>/tests/setup/globalTeardown.js',
+    testMatch: ['<rootDir>/tests/**/*.test.js'],
+    verbose: true,
+    forceExit: true,
+    testPathIgnorePatterns: ['<rootDir>/tests/tmp/'],
+    maxWorkers: 1,
+};

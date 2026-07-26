@@ -15,3 +15,6 @@ patch_script.js
 options.json
 options.json.migrated
 .kilo/
+tests/tmp/
+coverage/
+coverage-unit/

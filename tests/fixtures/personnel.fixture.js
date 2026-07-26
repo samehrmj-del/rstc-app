@@ -1,0 +1,50 @@
+module.exports = {
+    validPersonnel: {
+        name: 'Name',
+        lname: 'Family',
+        father_name: 'Father',
+        national_id: '1234567890',
+        emp_num: 'EMP001',
+        hire_date: '2024-01-01',
+        emp_type: 'FullTime',
+        org_post: 'Developer',
+        job_title: 'Senior Developer',
+        last_degree: 'Master',
+        phone: '09123456789',
+        address: 'Tehran, Iran',
+        status: 'فعال',
+        notes: 'Note'
+    },
+    updatePayload: {
+        name: 'UpdatedName',
+        lname: 'UpdatedFamily',
+        father_name: 'UpdatedFather',
+        national_id: '0987654321',
+        emp_num: 'EMP002',
+        hire_date: '2024-02-01',
+        emp_type: 'PartTime',
+        org_post: 'Designer',
+        job_title: 'UI Designer',
+        last_degree: 'Bachelor',
+        phone: '09987654321',
+        address: 'Shiraz, Iran',
+        status: 'غیرفعال',
+        notes: 'Updated note'
+    },
+    bulkImportRow: {
+        name: 'Bulk',
+        lname: 'User',
+        father_name: 'Father',
+        national_id: '1111111111',
+        emp_num: 'EMP011',
+        hire_date: '2024-03-01',
+        emp_type: 'FullTime',
+        org_post: 'Tester',
+        job_title: 'QA',
+        last_degree: 'Bachelor',
+        phone: '09111111111',
+        address: 'Mashhad, Iran',
+        status: 'فعال',
+        notes: ''
+    }
+};
