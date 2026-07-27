@@ -13,7 +13,7 @@ const {
 } = require('./schema');
 const { hashPassword } = require('../security/password.service');
 const { getDefaultPermissions, serializePermissions } = require('../security/permission.service');
-const { INIT_ADMIN_PASSWORD } = require('../config/env');
+const { INIT_ADMIN_PASSWORD, DB_PATH } = require('../config/env');
 
 async function createTables() {
     await dbRun(TABLE_USERS);
@@ -103,6 +103,18 @@ async function initializeDatabase() {
     }
 
     try {
+        const fs = require('fs');
+        const path = require('path');
+        const dbDir = path.dirname(DB_PATH || process.env.DB_PATH || './rstc_database.db');
+        if (!fs.existsSync(dbDir)) {
+            throw new Error(`Database directory does not exist: ${dbDir}. Create the directory and ensure it is writable.`);
+        }
+        try {
+            fs.accessSync(dbDir, fs.constants.W_OK);
+        } catch (e) {
+            throw new Error(`Database directory is not writable: ${dbDir}. Ensure the volume mount has write permissions for the current user.`);
+        }
+
         await createTables();
         await runMigrations();
         await seedAdmin();
