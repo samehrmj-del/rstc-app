@@ -39,8 +39,7 @@ function toggleTheme() {
 }
 function initTheme() {
     const saved = localStorage.getItem('rstc-theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const isDark = saved ? saved === 'dark' : prefersDark;
+    const isDark = saved ? saved === 'dark' : false;
     if (isDark) {
         document.body.classList.add('dark');
         const icon = document.querySelector('#themeToggle .theme-icon');
