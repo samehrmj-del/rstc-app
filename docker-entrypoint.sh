@@ -1,8 +1,24 @@
 #!/bin/sh
 set -e
 
-mkdir -p /app/data /app/backups /app/logs
-chown -R nodejs:nodejs /app/data /app/backups /app/logs 2>/dev/null || true
-chmod -R 777 /app/data /app/backups /app/logs 2>/dev/null || true
+fix_dir() {
+    dir="$1"
+    if [ -d "$dir" ]; then
+        chown -R nodejs:nodejs "$dir" 2>/dev/null || true
+        chmod -R 777 "$dir" 2>/dev/null || true
+    fi
+}
+
+export DB_DIR="${DB_DIR:-/app/data}"
+
+fix_dir "/app/data"
+fix_dir "/app/backups"
+fix_dir "/app/logs"
+fix_dir "/data"
+fix_dir "/backups"
+fix_dir "/logs"
+
+mkdir -p "$DB_DIR" 2>/dev/null || true
+fix_dir "$DB_DIR"
 
 exec "$@"
