@@ -11,7 +11,10 @@ RUN groupadd -r nodejs && useradd -r -g nodejs nodejs
 COPY --from=deps --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --chown=nodejs:nodejs . .
 
-RUN mkdir -p /app/data /app/backups /app/logs && chown -R nodejs:nodejs /app
+RUN mkdir -p /app/data /app/backups /app/logs
+
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 USER nodejs
 
@@ -25,4 +28,5 @@ ENV PORT=4000 \
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
   CMD node -e "require('http').get('http://localhost:${PORT}/api/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))"
 
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["node", "server.js"]
