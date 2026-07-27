@@ -16,13 +16,11 @@ RUN mkdir -p /app/data /app/backups /app/logs
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-USER nodejs
-
 EXPOSE 4000
 
 ENV PORT=4000 \
     NODE_ENV=production \
-    DB_PATH=/app/data/rstc_database.db \
+    DB_PATH=/data/rstc_database.db \
     BACKUP_DIR=/app/backups
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \

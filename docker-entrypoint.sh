@@ -9,8 +9,6 @@ fix_dir() {
     fi
 }
 
-export DB_DIR="${DB_DIR:-/app/data}"
-
 fix_dir "/app/data"
 fix_dir "/app/backups"
 fix_dir "/app/logs"
@@ -18,7 +16,7 @@ fix_dir "/data"
 fix_dir "/backups"
 fix_dir "/logs"
 
-mkdir -p "$DB_DIR" 2>/dev/null || true
-fix_dir "$DB_DIR"
+mkdir -p "/data" 2>/dev/null || true
+fix_dir "/data"
 
 exec "$@"
